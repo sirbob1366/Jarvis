@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>JARVIS mini</title>
+  <style>
+    html, body { margin: 0; background: transparent; overflow: hidden; user-select: none; }
+    #shell {
+      width: 128px; height: 128px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      cursor: grab;
+      position: relative;
+    }
+    svg { position: absolute; inset: 0; }
+    .spin-slow { transform-origin: 64px 64px; animation: spin 8s linear infinite; }
+    .spin-rev { transform-origin: 64px 64px; animation: spin 14s linear infinite reverse; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .core { animation: pulse 2.8s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+    #n {
+      position: relative;
+      font: 700 17px ui-monospace, 'Cascadia Mono', Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      color: #eafcff;
+      text-shadow: 0 0 10px rgba(79, 216, 255, 0.8);
+      pointer-events: none;
+    }
+    #sub {
+      position: absolute;
+      top: 78px; left: 0; right: 0;
+      text-align: center;
+      font: 600 7px ui-monospace, Consolas, monospace;
+      letter-spacing: 0.2em;
+      color: #6d93ab;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="shell" data-tauri-drag-region>
+    <svg viewBox="0 0 128 128" width="128" height="128" data-tauri-drag-region>
+      <defs>
+        <radialGradient id="core" cx="50%" cy="50%">
+          <stop offset="0%" stop-color="rgba(234,252,255,0.95)"/>
+          <stop offset="45%" stop-color="rgba(79,216,255,0.55)"/>
+          <stop offset="100%" stop-color="rgba(30,200,255,0)"/>
+        </radialGradient>
+      </defs>
+      <circle cx="64" cy="64" r="62" fill="rgba(5,10,16,0.88)" stroke="rgba(78,216,255,0.35)" stroke-width="1"/>
+      <circle class="spin-slow" cx="64" cy="64" r="54" fill="none" stroke="rgba(79,216,255,0.5)" stroke-width="1.5" stroke-dasharray="40 14 8 14"/>
+      <circle class="spin-rev" cx="64" cy="64" r="44" fill="none" stroke="rgba(30,200,255,0.35)" stroke-width="3" stroke-dasharray="3 9"/>
+      <circle class="core" cx="64" cy="64" r="34" fill="url(#core)"/>
+    </svg>
+    <span id="n">—</span>
+    <span id="sub">VIEWS TODAY</span>
+  </div>
+  <script type="module">
+    const { invoke } = window.__TAURI__.core;
+    const n = document.getElementById('n');
+
+    async function refresh() {
+      if (document.hidden) return;
+      try {
+        const o = await invoke('worker_api', { path: '/api/overview' });
+        const pv = o.today?.pageviews ?? 0;
+        n.textContent = pv >= 10000 ? `${(pv / 1000).toFixed(1)}k` : pv.toLocaleString('en-IN');
+      } catch { /* keep last value */ }
+    }
+    refresh();
+    setInterval(refresh, 60_000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+
+    // Click (not drag) expands the main window.
+    let downAt = null;
+    document.addEventListener('mousedown', (e) => { downAt = [e.screenX, e.screenY, Date.now()]; });
+    document.addEventListener('mouseup', (e) => {
+      if (!downAt) return;
+      const [x, y, t] = downAt;
+      downAt = null;
+      const moved = Math.hypot(e.screenX - x, e.screenY - y) > 4;
+      if (!moved && Date.now() - t < 600) invoke('show_main_window');
+    });
+  </script>
+</body>
+</html>

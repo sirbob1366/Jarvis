@@ -508,6 +508,164 @@ li.done .todo-text { text-decoration: line-through; opacity: 0.45; }
 .inbox-row .card-label { margin-right: 8px; }
 
 /* ==========================================================================
+   TAB 2 — HUD
+   ========================================================================== */
+
+.hud-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 24px 0;
+}
+.hud-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--dim);
+  font: 600 11px var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.hud-tab:hover { color: var(--text); }
+.hud-tab.active { color: var(--glow); border-color: var(--hairline); background: rgba(79, 216, 255, 0.06); }
+.hud-stale { margin-left: auto; }
+
+.hud-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 24px 24px; scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+
+.hud-fail { margin: auto; text-align: center; padding-top: 15vh; font: 11px var(--mono); letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; line-height: 2.4; }
+
+.hud-panel { padding: 16px; }
+
+/* ---- overview ---- */
+
+.hud-overview { display: grid; grid-template-columns: minmax(380px, 1fr) 360px; gap: 16px; height: 100%; }
+.reactor-stage { display: grid; place-items: center; min-height: 0; }
+.reactor-stage svg { width: min(100%, 56vh); height: auto; }
+.br-node:hover circle:nth-child(2) { stroke: var(--glow); stroke-width: 1; }
+
+.hud-side { display: flex; flex-direction: column; gap: 16px; }
+.topline {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(78, 216, 255, 0.07);
+}
+.topline:last-child { border-bottom: none; }
+.num.big { font-size: 20px; color: var(--text); }
+.glow-live { color: var(--glow); text-shadow: 0 0 12px rgba(79, 216, 255, 0.5); } /* live counter — glow allowed */
+
+/* ---- toolbar segments ---- */
+
+.hud-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
+.seg button {
+  background: transparent;
+  border: none;
+  color: var(--dim);
+  font: 600 10px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.seg button:hover { color: var(--text); }
+.seg button.active { color: var(--glow); background: rgba(79, 216, 255, 0.08); }
+
+/* ---- chart ---- */
+
+.chart-panel { margin-bottom: 16px; }
+.chart-panel canvas { display: block; margin-top: 8px; }
+.chart-legend { display: flex; gap: 16px; margin-top: 8px; font: 10px var(--mono); }
+.lg.pv { color: var(--glow); }
+.lg.uv { color: var(--green); }
+.chart-legend .card-label { margin-left: auto; }
+
+/* ---- breakdowns ---- */
+
+.hud-breakdowns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.bd-panel { min-width: 0; }
+.bd-list { list-style: none; margin: 0; padding: 0; }
+.bd-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+}
+.bd-k { font: 11px var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-bar { height: 4px; border-radius: 2px; background: rgba(78, 216, 255, 0.08); overflow: hidden; }
+.bd-bar span { display: block; height: 100%; background: rgba(79, 216, 255, 0.55); border-radius: 2px; }
+.bd-n { font-size: 11px; color: var(--dim); }
+
+/* ---- live ---- */
+
+.hud-live { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+.live-counters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.live-counter { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; transition: border-color var(--t-fast); }
+.live-counter:hover { border-color: var(--hairline-strong); }
+
+.stream-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.stream { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+.stream li {
+  display: grid;
+  grid-template-columns: 72px 88px minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(78, 216, 255, 0.06);
+  font-size: 11px;
+}
+.stream .st-t { color: var(--dim); }
+.stream .st-site { color: var(--glow); font-family: var(--mono); }
+.stream .st-path { color: var(--text); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stream .st-meta { color: var(--dimmer); font-family: var(--mono); }
+
+/* ---- revenue ---- */
+
+.hud-revenue { display: flex; flex-direction: column; gap: 16px; }
+.hud-revenue input[type='month'], .hud-revenue input[type='text'], .hud-revenue select {
+  background: rgba(8, 16, 26, 0.7);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  color: var(--text);
+  font: 12px var(--mono);
+  padding: 6px 8px;
+  outline: none;
+  color-scheme: dark;
+}
+.fx-box { display: flex; align-items: center; gap: 8px; }
+
+.rev-table { width: 100%; border-collapse: collapse; }
+.rev-table th {
+  text-align: left;
+  font: 600 10px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  padding: 8px 8px 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.rev-table td { padding: 8px 8px 8px 0; border-bottom: 1px solid rgba(78, 216, 255, 0.06); font-size: 12px; }
+.rev-table td.num { font-size: 12px; }
+
+.rev-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-bottom: 8px; }
+.rev-entries { list-style: none; margin: 8px 0 0; padding: 0; }
+.rev-entries li {
+  display: grid;
+  grid-template-columns: 110px 90px 1fr auto;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(78, 216, 255, 0.06);
+  font: 11px var(--mono);
+  color: var(--text);
+}
+
+/* ==========================================================================
    TAB 4 — settings
    ========================================================================== */
 

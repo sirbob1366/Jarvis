@@ -75,6 +75,30 @@ fn hide_window(app: AppHandle) {
     }
 }
 
+/// Mini reactor widget → click expands the full app.
+#[tauri::command]
+fn show_main_window(app: AppHandle) {
+    show_main(&app);
+}
+
+fn set_mini_visible(app: &AppHandle, visible: bool) {
+    if let Some(win) = app.get_webview_window("mini") {
+        let _ = if visible { win.show() } else { win.hide() };
+    }
+    let db = app.state::<db::Db>();
+    let _ = db::kv_set(&db, "mini_visible", if visible { "1" } else { "0" });
+}
+
+#[tauri::command]
+fn toggle_mini(app: AppHandle) -> bool {
+    let visible = app
+        .get_webview_window("mini")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false);
+    set_mini_visible(&app, !visible);
+    !visible
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -118,6 +142,8 @@ pub fn run() {
             toggle_mute,
             is_muted,
             hide_window,
+            show_main_window,
+            toggle_mini,
             get_hotkey,
         ])
         .setup(|app| {
@@ -130,14 +156,23 @@ pub fn run() {
 
             // ---- system tray ----
             let open = MenuItem::with_id(app, "open", "Open JARVIS", true, None::<&str>)?;
+            let mini_on = {
+                let db = app.state::<db::Db>();
+                db::kv_get(&db, "mini_visible").as_deref() == Some("1")
+            };
+            let mini = CheckMenuItem::with_id(app, "mini", "Mini reactor", true, mini_on, None::<&str>)?;
+            if mini_on {
+                set_mini_visible(app.handle(), true);
+            }
             let mute = CheckMenuItem::with_id(app, "mute", "Mute", true, false, None::<&str>)?;
             let autostart_enabled = app.autolaunch().is_enabled().unwrap_or(false);
             let autostart =
                 CheckMenuItem::with_id(app, "autostart", "Start with Windows", true, autostart_enabled, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &mute, &autostart, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &mini, &mute, &autostart, &quit])?;
 
             let mute_item = mute.clone();
+            let mini_item = mini.clone();
             TrayIconBuilder::with_id("jarvis-tray")
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("JARVIS")
@@ -146,6 +181,10 @@ pub fn run() {
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "open" => show_main(app),
                     "quit" => app.exit(0),
+                    "mini" => {
+                        let visible = toggle_mini(app.clone());
+                        let _ = mini_item.set_checked(visible);
+                    }
                     "mute" => {
                         let muted = toggle_mute(app.clone());
                         let _ = mute_item.set_checked(muted);

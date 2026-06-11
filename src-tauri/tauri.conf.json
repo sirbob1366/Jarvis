@@ -24,6 +24,22 @@
         "skipTaskbar": true,
         "alwaysOnTop": true,
         "center": true
+      },
+      {
+        "label": "mini",
+        "title": "JARVIS mini",
+        "url": "mini.html",
+        "width": 132,
+        "height": 132,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "visible": false,
+        "skipTaskbar": true,
+        "alwaysOnTop": true
       }
     ],
     "security": {
