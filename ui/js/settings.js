@@ -1,0 +1,246 @@
+// TAB 4 — Settings. All credentials (stored in Windows Credential Manager via
+// the Rust side), voice, briefing window, startup prefs, and a connection-
+// status row per integration with the last error visible.
+
+import { inv } from './data.js';
+import { prefs } from './app.js';
+
+const root = document.getElementById('settings-root');
+
+// Last-error memory per integration so failures are diagnosable at a glance.
+const connErrors = {
+  get: (k) => localStorage.getItem(`conn-err:${k}`) || '',
+  set: (k, v) => localStorage.setItem(`conn-err:${k}`, v || ''),
+};
+
+function secretField(id, label, placeholder, hintId) {
+  return `<label>${label}
+    <input id="${id}" type="password" placeholder="${placeholder}" autocomplete="off" />
+    ${hintId ? `<span class="hint" id="${hintId}"></span>` : ''}
+  </label>`;
+}
+
+function render() {
+  root.innerHTML = `
+  <div class="card settings-card" id="sc-status">
+    <h3>Connections</h3>
+    <div id="conn-rows"></div>
+    <button class="btn" id="conn-recheck">Re-check</button>
+  </div>
+
+  <div class="card settings-card">
+    <h3>Brain</h3>
+    ${secretField('set-api-key', 'Anthropic API key', 'sk-ant-…', 'api-key-state')}
+    <span class="hint">Stored in Windows Credential Manager — never a file.</span>
+  </div>
+
+  <div class="card settings-card">
+    <h3>Portfolio analytics</h3>
+    ${secretField('set-cf-id', 'CF Access — Client ID', 'xxxx.access')}
+    ${secretField('set-cf-secret', 'CF Access — Client Secret', '••••••••')}
+  </div>
+
+  <div class="card settings-card">
+    <h3>Personal Google</h3>
+    ${secretField('set-g-id', 'OAuth Client ID', '…apps.googleusercontent.com')}
+    ${secretField('set-g-secret', 'OAuth Client Secret', '••••••••')}
+    <button class="btn wide" id="g-connect">Connect Calendar</button>
+    <span class="hint" id="g-state"></span>
+  </div>
+
+  <div class="card settings-card">
+    <h3>Voice</h3>
+    <label>Voice
+      <select id="set-voice"></select>
+    </label>
+    <label>Rate <span class="hint num" id="rate-label"></span>
+      <input id="set-rate" type="range" min="0.7" max="1.5" step="0.05" />
+    </label>
+    <button class="btn wide" id="voice-test">Test voice</button>
+  </div>
+
+  <div class="card settings-card">
+    <h3>Briefing</h3>
+    <label>Morning window (IST hours)
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input id="set-brief-start" type="text" style="width:64px" />
+        <span style="align-self:center;color:var(--dim)">to</span>
+        <input id="set-brief-end" type="text" style="width:64px" />
+      </div>
+    </label>
+    <label>City (weather) <input id="set-city" type="text" placeholder="Pune" /></label>
+  </div>
+
+  <div class="card settings-card">
+    <h3>System</h3>
+    <div class="toggle-row"><span>Start with Windows</span><input type="checkbox" id="set-autostart" /></div>
+    <div class="toggle-row"><span>Mute voice</span><input type="checkbox" id="set-mute" /></div>
+  </div>
+
+  <div class="card settings-card">
+    <h3>&nbsp;</h3>
+    <button class="btn wide" id="settings-save">Save</button>
+    <span class="hint" id="save-state"></span>
+  </div>`;
+
+  wire();
+  refreshState();
+  refreshConnections();
+}
+
+// ---------- connection status ----------
+
+const CONNECTIONS = [
+  { key: 'anthropic', name: 'Anthropic API', check: checkAnthropic },
+  { key: 'cf', name: 'Analytics Worker', check: checkWorker },
+  { key: 'gcal', name: 'Google Calendar', check: checkCalendar },
+];
+
+async function checkAnthropic() {
+  const has = await inv('secret_exists', { key: 'anthropic_api_key' });
+  return has ? { state: 'ok', note: 'key stored' } : { state: 'unset', note: 'no key' };
+}
+
+async function checkWorker() {
+  const has = await inv('secret_exists', { key: 'cf_access_client_id' });
+  if (!has) return { state: 'unset', note: 'no service token' };
+  try {
+    await inv('worker_api', { path: '/api/sites' });
+    return { state: 'ok', note: 'reachable' };
+  } catch (e) {
+    return { state: 'fail', note: String(e) };
+  }
+}
+
+async function checkCalendar() {
+  const has = await inv('secret_exists', { key: 'google_oauth_token' });
+  if (!has) return { state: 'unset', note: 'not connected' };
+  try {
+    await inv('calendar_today');
+    return { state: 'ok', note: 'linked' };
+  } catch (e) {
+    return { state: 'fail', note: String(e) };
+  }
+}
+
+export async function refreshConnections() {
+  const rows = document.getElementById('conn-rows');
+  if (!rows) return;
+  rows.innerHTML = CONNECTIONS.map((c) => `
+    <div class="conn-row" id="conn-${c.key}">
+      <span class="conn-dot unset"></span>
+      <span class="conn-name">${c.name}</span>
+      <span class="conn-err">checking…</span>
+    </div>`).join('');
+
+  await Promise.all(CONNECTIONS.map(async (c) => {
+    let res;
+    try { res = await c.check(); } catch (e) { res = { state: 'fail', note: String(e) }; }
+    connErrors.set(c.key, res.state === 'fail' ? res.note : '');
+    const row = document.getElementById(`conn-${c.key}`);
+    if (!row) return;
+    row.querySelector('.conn-dot').className = `conn-dot ${res.state === 'ok' ? 'ok' : res.state === 'fail' ? 'fail' : 'unset'}`;
+    row.querySelector('.conn-err').textContent = res.note;
+    row.querySelector('.conn-err').title = res.note;
+  }));
+}
+
+// ---------- field state + save ----------
+
+async function refreshState() {
+  const [hasKey] = await Promise.all([inv('secret_exists', { key: 'anthropic_api_key' })]);
+  document.getElementById('api-key-state').textContent = hasKey ? '✓ key stored' : 'no key stored yet';
+  document.getElementById('set-city').value = (await inv('setting_get', { key: 'city' })) || 'Pune';
+  document.getElementById('set-brief-start').value = (await inv('setting_get', { key: 'briefing_window_start' })) || '6';
+  document.getElementById('set-brief-end').value = (await inv('setting_get', { key: 'briefing_window_end' })) || '12';
+  document.getElementById('set-rate').value = prefs.rate;
+  document.getElementById('rate-label').textContent = `${prefs.rate.toFixed(2)}×`;
+  document.getElementById('set-mute').checked = await inv('is_muted');
+  try {
+    document.getElementById('set-autostart').checked = await inv('plugin:autostart|is_enabled');
+  } catch { /* plugin command unavailable */ }
+  refreshVoices();
+}
+
+function refreshVoices() {
+  const sel = document.getElementById('set-voice');
+  if (!sel) return;
+  const voices = speechSynthesis.getVoices();
+  sel.innerHTML = '<option value="">Auto (UK male preferred)</option>' +
+    voices.map((v) => {
+      const natural = /natural/i.test(v.name) ? ' ★' : '';
+      return `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name}${natural}</option>`;
+    }).join('');
+  sel.value = prefs.voiceName;
+}
+speechSynthesis.addEventListener?.('voiceschanged', refreshVoices);
+
+function wire() {
+  document.getElementById('conn-recheck').addEventListener('click', refreshConnections);
+
+  document.getElementById('set-rate').addEventListener('input', (e) => {
+    document.getElementById('rate-label').textContent = `${Number(e.target.value).toFixed(2)}×`;
+  });
+
+  document.getElementById('voice-test').addEventListener('click', () => {
+    prefs.rate = Number(document.getElementById('set-rate').value);
+    prefs.voiceName = document.getElementById('set-voice').value;
+    document.dispatchEvent(new CustomEvent('jarvis-said', {
+      detail: 'All systems nominal, sir. Shall I proceed?',
+    }));
+  });
+
+  document.getElementById('set-mute').addEventListener('change', async () => {
+    await inv('toggle_mute');
+  });
+
+  document.getElementById('set-autostart').addEventListener('change', async (e) => {
+    try {
+      await inv(e.target.checked ? 'plugin:autostart|enable' : 'plugin:autostart|disable');
+    } catch { /* tray menu still controls it */ }
+  });
+
+  document.getElementById('g-connect').addEventListener('click', async () => {
+    const state = document.getElementById('g-state');
+    await saveSecret('set-g-id', 'google_client_id');
+    await saveSecret('set-g-secret', 'google_client_secret');
+    state.textContent = 'waiting for Google consent…';
+    try {
+      state.textContent = await inv('calendar_connect');
+    } catch (err) {
+      state.textContent = String(err);
+    }
+    refreshConnections();
+  });
+
+  document.getElementById('settings-save').addEventListener('click', async () => {
+    await saveSecret('set-api-key', 'anthropic_api_key');
+    await saveSecret('set-cf-id', 'cf_access_client_id');
+    await saveSecret('set-cf-secret', 'cf_access_client_secret');
+    await saveSecret('set-g-id', 'google_client_id');
+    await saveSecret('set-g-secret', 'google_client_secret');
+    prefs.rate = Number(document.getElementById('set-rate').value);
+    prefs.voiceName = document.getElementById('set-voice').value;
+    await inv('setting_set', { key: 'city', value: document.getElementById('set-city').value.trim() || 'Pune' });
+    await inv('setting_set', { key: 'briefing_window_start', value: document.getElementById('set-brief-start').value.trim() || '6' });
+    await inv('setting_set', { key: 'briefing_window_end', value: document.getElementById('set-brief-end').value.trim() || '12' });
+    document.getElementById('save-state').textContent = '✓ saved';
+    setTimeout(() => { const el = document.getElementById('save-state'); if (el) el.textContent = ''; }, 2500);
+    refreshState();
+    refreshConnections();
+  });
+}
+
+async function saveSecret(inputId, key) {
+  const el = document.getElementById(inputId);
+  const v = el?.value.trim();
+  if (v) {
+    await inv('secret_set', { key, value: v });
+    el.value = '';
+  }
+}
+
+render();
+document.addEventListener('tab-shown', ({ detail }) => {
+  if (detail.tab === 'settings') { refreshState(); refreshConnections(); }
+});

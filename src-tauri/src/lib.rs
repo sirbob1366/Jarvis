@@ -4,9 +4,11 @@
 mod calendar;
 mod claude;
 mod db;
+mod hud;
 mod proactive;
 mod secrets;
 mod stt;
+mod todos;
 mod tools;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -103,6 +105,16 @@ pub fn run() {
             db::setting_get,
             db::setting_set,
             calendar::calendar_connect,
+            calendar::calendar_today,
+            hud::worker_api,
+            hud::worker_mutate,
+            tools::weather_now,
+            todos::todo_list,
+            todos::todo_add,
+            todos::todo_complete,
+            todos::todo_confirm,
+            todos::todo_snooze,
+            todos::todo_dismiss,
             toggle_mute,
             is_muted,
             hide_window,

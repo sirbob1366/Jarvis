@@ -1,47 +1,111 @@
-// JARVIS Desktop UI — conversation view + settings.
-// Tauri global API (withGlobalTauri): window.__TAURI__.
+// JARVIS Command Center — shell: tab router, conversation drawer, chat
+// stream rendering, mute, hotkey wiring. The board/HUD/work/settings tabs
+// each own their module; this file owns navigation and the conversation.
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+// ---------- prefs (non-secret UI prefs; secrets live in the OS vault) ----------
+
+export const prefs = {
+  get rate() { return Number(localStorage.getItem('voice-rate') || 1.05); },
+  set rate(v) { localStorage.setItem('voice-rate', v); },
+  get pitch() { return Number(localStorage.getItem('voice-pitch') || 0.92); },
+  set pitch(v) { localStorage.setItem('voice-pitch', v); },
+  get voiceName() { return localStorage.getItem('voice-name') || ''; },
+  set voiceName(v) { localStorage.setItem('voice-name', v); },
+};
+
+// ---------- tab router ----------
+
+const tabs = ['command', 'hud', 'work', 'settings'];
+let activeTab = 'command';
+
+export function navigate(tab, detail = null) {
+  if (!tabs.includes(tab)) return;
+  activeTab = tab;
+  for (const t of tabs) {
+    document.getElementById(`tab-${t}`)?.classList.toggle('active', t === tab);
+  }
+  document.querySelectorAll('.rail-btn[data-tab]').forEach((b) =>
+    b.classList.toggle('active', b.dataset.tab === tab));
+  // Tab modules listen for this to lazily render / drill in.
+  document.dispatchEvent(new CustomEvent('tab-shown', { detail: { tab, detail } }));
+}
+
+export function currentTab() { return activeTab; }
+
+document.querySelectorAll('.rail-btn[data-tab]').forEach((b) =>
+  b.addEventListener('click', () => navigate(b.dataset.tab)));
+
+// Card click-throughs (cards carry data-goto; inner interactive elements stop propagation).
+document.addEventListener('click', (e) => {
+  const gotoTab = e.target.closest('[data-goto-tab]');
+  if (gotoTab) { e.stopPropagation(); navigate(gotoTab.dataset.gotoTab); return; }
+  const card = e.target.closest('[data-goto]');
+  if (card && !e.target.closest('input,button,a,form')) navigate(card.dataset.goto);
+});
+
+// ---------- conversation drawer ----------
+
+const drawer = document.getElementById('drawer');
+const scrim = document.getElementById('drawer-scrim');
 const chat = document.getElementById('chat');
 const input = document.getElementById('input');
 const reactor = document.getElementById('reactor');
-const muteBtn = document.getElementById('mute-btn');
 
-let streamingEl = null; // the in-flight jarvis bubble
+let drawerOpen = false;
 
-// ---------- prefs (non-secret UI prefs only; secrets live in the OS vault) ----------
+export function openDrawer(focus = true) {
+  if (drawerOpen) return;
+  drawerOpen = true;
+  drawer.hidden = false;
+  scrim.hidden = false;
+  requestAnimationFrame(() => {
+    drawer.classList.add('open');
+    scrim.classList.add('open');
+  });
+  if (focus) setTimeout(() => input.focus(), 120);
+}
 
-export const prefs = {
-  get rate() { return Number(localStorage.getItem('voice-rate') || 1.02); },
-  set rate(v) { localStorage.setItem('voice-rate', v); },
-  get pitch() { return Number(localStorage.getItem('voice-pitch') || 0.85); },
-  set pitch(v) { localStorage.setItem('voice-pitch', v); },
-  get city() { return localStorage.getItem('city') || 'Pune'; },
-  set city(v) { localStorage.setItem('city', v); },
-};
+export function closeDrawer() {
+  if (!drawerOpen) return;
+  drawerOpen = false;
+  drawer.classList.remove('open');
+  scrim.classList.remove('open');
+  setTimeout(() => { drawer.hidden = true; scrim.hidden = true; }, 220);
+}
+
+export function isDrawerOpen() { return drawerOpen; }
+
+scrim.addEventListener('click', closeDrawer);
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+document.getElementById('chat-clear').addEventListener('click', async () => {
+  await invoke('clear_session');
+  chat.innerHTML = '';
+  emptyHint();
+});
 
 // ---------- chat rendering ----------
 
-let hotkeyLabel = 'Ctrl+Shift+J';
+let streamingEl = null;
+let hotkeyLabel = '';
 
 function emptyHint() {
   if (!chat.children.length) {
-    const voiceHint = hotkeyLabel ? `${hotkeyLabel} to speak · or type below` : 'type below (no global hotkey available)';
-    chat.innerHTML = `<div class="hint-empty">SYSTEMS ONLINE<br/><br/>${voiceHint}</div>`;
+    const voiceHint = hotkeyLabel ? `${hotkeyLabel} to speak · or type below` : 'type below';
+    chat.innerHTML = `<div class="hint-empty">SYSTEMS ONLINE<br/>${voiceHint}</div>`;
   }
 }
 
 invoke('get_hotkey').then((hk) => {
   hotkeyLabel = hk;
-  input.placeholder = hk ? `Type to JARVIS… (${hk} to speak)` : 'Type to JARVIS…';
+  document.getElementById('strip-input').placeholder = hk ? `Ask JARVIS…  (${hk} to speak)` : 'Ask JARVIS…';
   emptyHint();
 });
 
 function addMsg(role, text, cls = '') {
-  const hint = chat.querySelector('.hint-empty');
-  if (hint) hint.remove();
+  chat.querySelector('.hint-empty')?.remove();
   const el = document.createElement('div');
   el.className = `msg ${role} ${cls}`;
   el.innerHTML = `<span class="who">${role === 'user' ? 'SIR' : 'J.A.R.V.I.S.'}</span><span class="body"></span>`;
@@ -53,11 +117,13 @@ function addMsg(role, text, cls = '') {
 
 export function setThinking(on) {
   reactor.classList.toggle('thinking', on);
+  document.getElementById('titlebar-status').textContent = on ? 'processing' : '';
 }
 
 export async function send(message) {
   message = message.trim();
   if (!message) return;
+  openDrawer(false);
   addMsg('user', message);
   setThinking(true);
   streamingEl = null;
@@ -70,18 +136,17 @@ export async function send(message) {
 }
 
 listen('jarvis-delta', ({ payload }) => {
-  if (!streamingEl) streamingEl = addMsg('jarvis', '');
+  if (!streamingEl) { openDrawer(false); streamingEl = addMsg('jarvis', ''); }
   streamingEl.querySelector('.body').textContent += payload.text;
   chat.scrollTop = chat.scrollHeight;
 });
 
-listen('jarvis-done', async ({ payload }) => {
+listen('jarvis-done', ({ payload }) => {
   setThinking(false);
   toolNote(null);
-  if (!streamingEl) streamingEl = addMsg('jarvis', payload.text);
+  if (!streamingEl) { openDrawer(false); streamingEl = addMsg('jarvis', payload.text); }
   else streamingEl.querySelector('.body').textContent = payload.text;
   streamingEl = null;
-  // Stage 2: speak the reply (voice.js hooks this event too).
   document.dispatchEvent(new CustomEvent('jarvis-said', { detail: payload.text }));
 });
 
@@ -89,6 +154,7 @@ listen('jarvis-error', ({ payload }) => {
   setThinking(false);
   streamingEl = null;
   toolNote(null);
+  openDrawer(false);
   addMsg('jarvis', payload.error, 'error');
 });
 
@@ -103,42 +169,41 @@ const TOOL_LABELS = {
   remember: 'committing to memory',
   recall: 'searching my notes',
   calendar: 'consulting the calendar',
+  work_todos: 'reviewing the task ledger',
 };
 
 let toolEl = null;
 function toolNote(name) {
-  if (!name) {
-    toolEl?.remove();
-    toolEl = null;
-    return;
-  }
+  if (!name) { toolEl?.remove(); toolEl = null; return; }
   if (!toolEl) {
     toolEl = document.createElement('div');
     toolEl.className = 'hint-empty';
     toolEl.style.margin = '0';
     chat.appendChild(toolEl);
   }
-  toolEl.textContent = `· ${TOOL_LABELS[name] || name} ·`;
+  toolEl.textContent = `· ${TOOL_LABELS[name] || name.replace(/_/g, ' ')} ·`;
   chat.scrollTop = chat.scrollHeight;
 }
-
 listen('jarvis-tool', ({ payload }) => toolNote(payload.name));
 
-// ---------- timers ----------
+// ---------- proactive messages land in the drawer ----------
 
 listen('timer-fired', ({ payload }) => {
+  openDrawer(false);
   addMsg('jarvis', `⏱ ${payload.label}`);
   document.dispatchEvent(new CustomEvent('jarvis-said', { detail: payload.label }));
 });
 
-// ---------- proactive anomaly alerts ----------
-
 listen('anomaly-alert', ({ payload }) => {
+  openDrawer(false);
   addMsg('jarvis', `⚠ ${payload.text}`);
   document.dispatchEvent(new CustomEvent('jarvis-said', { detail: payload.text }));
+  document.dispatchEvent(new CustomEvent('board-refresh')); // anomaly chips
 });
 
-// ---------- composer ----------
+listen('todos-changed', () => document.dispatchEvent(new CustomEvent('board-refresh')));
+
+// ---------- composers ----------
 
 document.getElementById('composer').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -147,89 +212,49 @@ document.getElementById('composer').addEventListener('submit', (e) => {
   send(text);
 });
 
+const stripInput = document.getElementById('strip-input');
+stripInput.closest('.greet-ask').addEventListener('submit', (e) => e.preventDefault());
+stripInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && stripInput.value.trim()) {
+    send(stripInput.value);
+    stripInput.value = '';
+  }
+});
+
+document.getElementById('mic-btn').addEventListener('click', () => {
+  openDrawer(false);
+  document.dispatchEvent(new CustomEvent('ptt-start'));
+});
+
 document.getElementById('hide-btn').addEventListener('click', () => invoke('hide_window'));
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') invoke('hide_window');
+  if (e.key === 'Escape') {
+    if (drawerOpen) closeDrawer();
+    else invoke('hide_window');
+  }
 });
 
 // ---------- mute ----------
 
-async function renderMute(muted) {
-  muteBtn.textContent = muted ? '🔇' : '🔊';
+const muteBtn = document.getElementById('mute-btn');
+function renderMute(muted) {
   muteBtn.classList.toggle('muted', muted);
+  muteBtn.querySelector('.snd-mute').style.display = muted ? '' : 'none';
+  muteBtn.querySelectorAll('.snd-wave').forEach((w) => (w.style.display = muted ? 'none' : ''));
 }
 muteBtn.addEventListener('click', async () => renderMute(await invoke('toggle_mute')));
 listen('mute-changed', ({ payload }) => renderMute(payload));
 invoke('is_muted').then(renderMute);
 
-// ---------- hotkey summon ----------
+// ---------- global hotkey: summon + push-to-talk ----------
 
 listen('hotkey-summon', () => {
-  input.focus();
-  // Stage 2: voice.js starts push-to-talk listening on this event.
+  openDrawer(false);
   document.dispatchEvent(new CustomEvent('ptt-start'));
 });
 listen('hotkey-released', () => {
   document.dispatchEvent(new CustomEvent('ptt-stop'));
 });
 
-// ---------- settings ----------
-
-const dlg = document.getElementById('settings');
-const apiKeyInput = document.getElementById('set-api-key');
-const apiKeyState = document.getElementById('api-key-state');
-
-document.getElementById('settings-btn').addEventListener('click', async () => {
-  const [hasKey, hasCf, hasCal] = await Promise.all([
-    invoke('secret_exists', { key: 'anthropic_api_key' }),
-    invoke('secret_exists', { key: 'cf_access_client_id' }),
-    invoke('secret_exists', { key: 'google_oauth_token' }),
-  ]);
-  apiKeyState.textContent = hasKey ? '✓ key stored in Credential Manager' : 'no key stored yet';
-  document.getElementById('cf-state').textContent = hasCf ? '✓ service token stored' : 'not configured (portfolio tool offline)';
-  document.getElementById('g-state').textContent = hasCal ? '✓ calendar linked' : 'not connected';
-  apiKeyInput.value = '';
-  document.getElementById('set-cf-id').value = '';
-  document.getElementById('set-cf-secret').value = '';
-  document.getElementById('set-rate').value = prefs.rate;
-  document.getElementById('set-pitch').value = prefs.pitch;
-  document.getElementById('set-city').value = (await invoke('setting_get', { key: 'city' })) || 'Pune';
-  dlg.showModal();
-});
-
-document.getElementById('settings-save').addEventListener('click', async (e) => {
-  e.preventDefault();
-  const key = apiKeyInput.value.trim();
-  if (key) await invoke('secret_set', { key: 'anthropic_api_key', value: key });
-  const cfId = document.getElementById('set-cf-id').value.trim();
-  const cfSecret = document.getElementById('set-cf-secret').value.trim();
-  if (cfId) await invoke('secret_set', { key: 'cf_access_client_id', value: cfId });
-  if (cfSecret) await invoke('secret_set', { key: 'cf_access_client_secret', value: cfSecret });
-  const gId = document.getElementById('set-g-id').value.trim();
-  const gSecret = document.getElementById('set-g-secret').value.trim();
-  if (gId) await invoke('secret_set', { key: 'google_client_id', value: gId });
-  if (gSecret) await invoke('secret_set', { key: 'google_client_secret', value: gSecret });
-  prefs.rate = Number(document.getElementById('set-rate').value);
-  prefs.pitch = Number(document.getElementById('set-pitch').value);
-  await invoke('setting_set', { key: 'city', value: document.getElementById('set-city').value.trim() || 'Pune' });
-  dlg.close();
-});
-
-document.getElementById('g-connect').addEventListener('click', async () => {
-  const state = document.getElementById('g-state');
-  // Persist any freshly pasted client credentials first.
-  const gId = document.getElementById('set-g-id').value.trim();
-  const gSecret = document.getElementById('set-g-secret').value.trim();
-  if (gId) await invoke('secret_set', { key: 'google_client_id', value: gId });
-  if (gSecret) await invoke('secret_set', { key: 'google_client_secret', value: gSecret });
-  state.textContent = 'waiting for Google consent…';
-  try {
-    state.textContent = await invoke('calendar_connect');
-  } catch (err) {
-    state.textContent = String(err);
-  }
-});
-
 emptyHint();
-input.focus();

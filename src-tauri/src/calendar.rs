@@ -149,6 +149,12 @@ pub async fn calendar_connect(app: AppHandle) -> Result<String, String> {
     Ok("Calendar linked. At your service, sir.".into())
 }
 
+/// Board "Today" card — today's events without a model round-trip.
+#[tauri::command]
+pub async fn calendar_today() -> Result<Value, String> {
+    run_tool(&json!({ "action": "today" })).await
+}
+
 // ---------- the calendar tool ----------
 
 fn simplify(items: &[Value]) -> Vec<Value> {

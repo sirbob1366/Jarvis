@@ -1,11 +1,9 @@
 // Voice I/O.
-// TTS: webview speechSynthesis (WebView2 exposes the installed Windows voices) —
-//      prefers a UK male voice, rate/pitch from Settings, respects Mute.
-// STT: WebView2 lacks Web Speech recognition, so push-to-talk invokes the Rust
-//      WinRT recognizer (stt_listen); we still probe for SpeechRecognition and
-//      use it if the webview ever gains support.
-// Waveform: getUserMedia analyser drives the strip; mic is only open while
-//      listening. If mic access fails, an animated fallback renders instead.
+// TTS: webview speechSynthesis (Stage 4 upgrades to WinRT natural voices on
+//      the Rust side) — honors the Settings voice picker, rate, and Mute.
+// STT: push-to-talk via the Rust WinRT recognizer (WebView2 lacks Web Speech
+//      recognition); auto-stops on silence, hotkey-release stops early.
+// Waveform: getUserMedia analyser; mic only open while listening.
 
 import { prefs, send, setThinking } from './app.js';
 
@@ -15,49 +13,62 @@ const { listen } = window.__TAURI__.event;
 const wave = document.getElementById('wave');
 const canvas = document.getElementById('wave-canvas');
 const ctx2d = canvas.getContext('2d');
+const micBtn = document.getElementById('mic-btn');
 
 // ---------- text-to-speech ----------
 
-let voice = null;
-
 function pickVoice() {
   const voices = speechSynthesis.getVoices();
-  if (!voices.length) return;
-  voice =
+  if (!voices.length) return null;
+  if (prefs.voiceName) {
+    const chosen = voices.find((v) => v.name === prefs.voiceName);
+    if (chosen) return chosen;
+  }
+  return (
+    voices.find((v) => /en-GB/i.test(v.lang) && /natural/i.test(v.name) && /ryan|male/i.test(v.name)) ||
+    voices.find((v) => /en-GB/i.test(v.lang) && /natural/i.test(v.name)) ||
     voices.find((v) => /en-GB/i.test(v.lang) && /ryan|george|thomas|daniel|male/i.test(v.name)) ||
     voices.find((v) => /en-GB/i.test(v.lang)) ||
     voices.find((v) => /^en/i.test(v.lang)) ||
-    voices[0];
+    voices[0]
+  );
 }
-speechSynthesis.addEventListener('voiceschanged', pickVoice);
-pickVoice();
 
 export async function speak(text) {
   if (!('speechSynthesis' in window) || !text) return;
+  if (listening) return; // never speak over sir mid-push-to-talk
   if (await invoke('is_muted')) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.voice = voice;
+  u.voice = pickVoice();
   u.rate = prefs.rate;
   u.pitch = prefs.pitch;
   speechSynthesis.speak(u);
 }
 
-// Every reply is spoken (and already rendered as text by app.js).
 document.addEventListener('jarvis-said', (e) => speak(e.detail));
 listen('mute-changed', ({ payload }) => {
   if (payload) speechSynthesis.cancel();
 });
 
-// ---------- waveform ----------
+// ---------- waveform (live element — the only place it animates) ----------
 
 let audioCtx = null;
 let analyser = null;
 let micStream = null;
 let rafId = null;
 
+function sizeCanvas() {
+  // Device-pixel-ratio-aware: crisp bars on any display.
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 480;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(36 * dpr);
+}
+
 async function startWave() {
   wave.hidden = false;
+  sizeCanvas();
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioCtx = new AudioContext();
@@ -65,7 +76,7 @@ async function startWave() {
     analyser.fftSize = 256;
     audioCtx.createMediaStreamSource(micStream).connect(analyser);
   } catch {
-    analyser = null; // fallback animation
+    analyser = null; // animated fallback
   }
   const data = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
   const draw = () => {
@@ -105,10 +116,10 @@ let listening = false;
 async function startListening() {
   if (listening) return;
   listening = true;
+  micBtn.classList.add('listening');
   speechSynthesis.cancel(); // don't transcribe our own voice
 
   if (webSpeech) {
-    // Rare: webview gained Web Speech support — prefer it.
     const rec = new webSpeech();
     rec.lang = 'en-GB';
     rec.interimResults = false;
@@ -125,6 +136,7 @@ async function startListening() {
 
 function endListening() {
   listening = false;
+  micBtn.classList.remove('listening');
   stopWave();
 }
 
@@ -146,10 +158,7 @@ function gotError(error) {
 listen('stt-result', ({ payload }) => gotTranscript(payload.text));
 listen('stt-error', ({ payload }) => gotError(payload.error));
 
-// Hotkey wiring from app.js
 document.addEventListener('ptt-start', startListening);
 document.addEventListener('ptt-stop', () => {
-  // "Hold" behaviour: releasing the hotkey ends the capture; the recognizer
-  // also auto-stops on silence, so tap-and-speak works too.
   if (listening && !webSpeech) invoke('stt_stop');
 });

@@ -20,7 +20,21 @@ pub fn init(app: &AppHandle) -> Result<Db, Box<dyn std::error::Error>> {
          CREATE TABLE IF NOT EXISTS kv (
            key TEXT PRIMARY KEY,
            value TEXT NOT NULL
-         );",
+         );
+         CREATE TABLE IF NOT EXISTS todos (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           created_ts INTEGER NOT NULL,
+           text TEXT NOT NULL,
+           source TEXT NOT NULL DEFAULT 'manual',
+           status TEXT NOT NULL DEFAULT 'open',
+           origin_key TEXT,
+           link TEXT,
+           due_ts INTEGER,
+           snoozed_until INTEGER,
+           done_ts INTEGER
+         );
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_todos_origin
+           ON todos(origin_key) WHERE origin_key IS NOT NULL;",
     )?;
     Ok(Db(Mutex::new(conn)))
 }

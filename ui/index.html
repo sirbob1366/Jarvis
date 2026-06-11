@@ -7,61 +7,171 @@
   <link rel="stylesheet" href="css/jarvis.css" />
 </head>
 <body>
-  <header data-tauri-drag-region>
-    <div class="reactor" id="reactor" data-tauri-drag-region>
+
+  <!-- ============ left icon rail ============ -->
+  <aside id="rail">
+    <div class="rail-reactor" id="reactor" title="JARVIS">
       <span class="ring r1"></span><span class="ring r2"></span><span class="core"></span>
     </div>
-    <div class="title" data-tauri-drag-region>J.A.R.V.I.S.<small>desktop uplink</small></div>
-    <button class="icon-btn" id="mute-btn" title="Mute voice">🔊</button>
-    <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
-    <button class="icon-btn" id="hide-btn" title="Hide">—</button>
-  </header>
+    <nav id="rail-nav">
+      <button class="rail-btn active" data-tab="command" title="Command">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </button>
+      <button class="rail-btn" data-tab="hud" title="HUD — analytics">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button class="rail-btn" data-tab="work" title="Work">
+        <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>
+      </button>
+    </nav>
+    <div class="rail-bottom">
+      <button class="rail-btn" id="mute-btn" title="Mute voice">
+        <svg viewBox="0 0 24 24" class="ic-sound"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="snd-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="snd-wave" d="M18 6a8.5 8.5 0 0 1 0 12"/><path class="snd-mute" d="M16 9l5 6M21 9l-5 6" style="display:none"/></svg>
+      </button>
+      <button class="rail-btn" data-tab="settings" title="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.5-2.4 1a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4L9.6 5a7.6 7.6 0 0 0-2.6 1.5l-2.4-1-2 3.5 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 2.6-1.5l2.4 1 2-3.5z"/></svg>
+      </button>
+    </div>
+  </aside>
 
-  <main id="chat" aria-live="polite"></main>
+  <!-- ============ stage ============ -->
+  <div id="stage">
+    <header id="titlebar" data-tauri-drag-region>
+      <span class="wordmark" data-tauri-drag-region>J.A.R.V.I.S.</span>
+      <span class="titlebar-status" id="titlebar-status" data-tauri-drag-region></span>
+      <button class="win-btn" id="hide-btn" title="Hide to tray (Esc)">—</button>
+    </header>
 
-  <div class="wave" id="wave" hidden>
-    <canvas id="wave-canvas" width="480" height="36"></canvas>
-    <span class="listening-tag">● LISTENING</span>
+    <!-- ===== TAB 1: COMMAND — the glance board ===== -->
+    <section class="tab active" id="tab-command">
+      <div class="board">
+        <div class="greeting-strip card" id="greeting-strip">
+          <div class="greet-left">
+            <div class="greet-line" id="greet-line">Good day, sir.</div>
+            <div class="greet-sub"><span id="greet-date"></span><span class="greet-sep">·</span><span id="greet-clock" class="num"></span></div>
+          </div>
+          <div class="greet-weather" id="greet-weather" title="">
+            <span class="wx-icon" id="wx-icon"></span>
+            <span class="wx-temp num" id="wx-temp">—</span>
+            <span class="wx-line" id="wx-line">awaiting telemetry</span>
+          </div>
+          <div class="greet-ask">
+            <button class="mic-btn" id="mic-btn" title="Push to talk">
+              <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+            </button>
+            <input id="strip-input" type="text" placeholder="Ask JARVIS…" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="card board-card" id="card-portfolio" data-goto="hud">
+          <div class="card-head">
+            <span class="card-label">Portfolio</span>
+            <span class="live-now" id="live-now" hidden><span class="live-dot"></span><span class="num" id="live-now-n">0</span> live</span>
+          </div>
+          <div class="pf-body">
+            <div class="pf-reactor">
+              <svg id="mini-reactor" viewBox="0 0 120 120" width="116" height="116"></svg>
+              <div class="pf-reactor-center">
+                <div class="num pf-big" id="pf-pv">—</div>
+                <div class="pf-big-sub">views today</div>
+              </div>
+            </div>
+            <div class="pf-stats">
+              <div class="pf-stat"><span class="card-label">Pageviews</span><span class="num" id="pf-pv2">—</span><span class="delta" id="pf-pv-delta"></span></div>
+              <div class="pf-stat"><span class="card-label">Uniques</span><span class="num" id="pf-uv">—</span><span class="delta" id="pf-uv-delta"></span></div>
+              <div class="pf-stat"><span class="card-label">7-day avg</span><span class="num" id="pf-avg">—</span><span class="delta dim-delta" id="pf-vs-avg"></span></div>
+            </div>
+          </div>
+          <div class="site-strip" id="site-strip"></div>
+          <div class="chips" id="pf-anomalies"></div>
+          <div class="card-degraded" id="pf-degraded" hidden>
+            <span>analytics offline</span><button class="link-btn" data-goto-tab="settings">Settings →</button>
+          </div>
+        </div>
+
+        <div class="card board-card" id="card-today" data-goto="work">
+          <div class="card-head"><span class="card-label">Today</span><span class="card-label dimmer" id="today-count"></span></div>
+          <div class="next-meeting" id="next-meeting" hidden>
+            <div class="nm-title" id="nm-title"></div>
+            <div class="nm-when"><span class="num" id="nm-time"></span><span class="nm-in" id="nm-in"></span></div>
+          </div>
+          <ul class="event-list" id="event-list"></ul>
+          <div class="gap-hint" id="gap-hint" hidden></div>
+          <div class="card-empty" id="today-empty" hidden>nothing scheduled, sir</div>
+          <div class="card-degraded" id="today-degraded" hidden>
+            <span>calendar not connected</span><button class="link-btn" data-goto-tab="settings">Settings →</button>
+          </div>
+        </div>
+
+        <div class="card board-card" id="card-todo">
+          <div class="card-head">
+            <span class="card-label">To-Do</span>
+            <span class="count-badge num" id="todo-count" hidden>0</span>
+          </div>
+          <ul class="todo-list" id="todo-list"></ul>
+          <div class="card-empty" id="todo-empty" hidden>all clear, sir</div>
+          <form class="todo-add" id="todo-add-form">
+            <input id="todo-add-input" type="text" placeholder="+ add" autocomplete="off" />
+          </form>
+        </div>
+
+        <div class="card inbox-strip" id="inbox-strip">
+          <div class="inbox-nudge" id="inbox-nudge">
+            <span>Connect work accounts — Gmail unread, Slack mentions and action items appear here.</span>
+            <button class="link-btn" data-goto-tab="settings">Settings →</button>
+          </div>
+          <div class="inbox-rows" id="inbox-rows" hidden>
+            <div class="inbox-row" id="inbox-gmail"></div>
+            <div class="inbox-row" id="inbox-slack"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== TAB 2: HUD (stage 2) ===== -->
+    <section class="tab" id="tab-hud">
+      <div class="tab-placeholder" id="hud-root">HUD SYSTEMS — STAGE 2</div>
+    </section>
+
+    <!-- ===== TAB 3: WORK (stage 3) ===== -->
+    <section class="tab" id="tab-work">
+      <div class="tab-placeholder" id="work-root">WORK SYSTEMS — STAGE 3</div>
+    </section>
+
+    <!-- ===== TAB 4: SETTINGS ===== -->
+    <section class="tab" id="tab-settings">
+      <div class="settings-wrap" id="settings-root"></div>
+    </section>
   </div>
 
-  <footer>
-    <form id="composer">
-      <input id="input" type="text" placeholder="Type to JARVIS… (Ctrl+Shift+J to speak)" autocomplete="off" />
-      <button type="submit" class="send-btn" title="Send">➤</button>
-    </form>
-  </footer>
-
-  <dialog id="settings">
-    <h2>SETTINGS</h2>
-    <label>Anthropic API key
-      <input id="set-api-key" type="password" placeholder="sk-ant-…  (stored in Windows Credential Manager)" />
-      <span class="hint" id="api-key-state"></span>
-    </label>
-    <label>CF Access service token — Client ID
-      <input id="set-cf-id" type="password" placeholder="xxxx.access (stored in Credential Manager)" />
-      <span class="hint" id="cf-state"></span>
-    </label>
-    <label>CF Access service token — Client Secret
-      <input id="set-cf-secret" type="password" placeholder="(stored in Credential Manager)" />
-    </label>
-    <label>Voice rate <input id="set-rate" type="range" min="0.6" max="1.6" step="0.05" value="1.02" /></label>
-    <label>Voice pitch <input id="set-pitch" type="range" min="0.5" max="1.5" step="0.05" value="0.85" /></label>
-    <label>City (weather) <input id="set-city" type="text" placeholder="Pune" /></label>
-    <label>Google OAuth — Client ID
-      <input id="set-g-id" type="password" placeholder="…apps.googleusercontent.com" />
-      <span class="hint" id="g-state"></span>
-    </label>
-    <label>Google OAuth — Client Secret
-      <input id="set-g-secret" type="password" />
-    </label>
-    <button type="button" class="btn-wide" id="g-connect">CONNECT CALENDAR</button>
-    <menu>
-      <button id="settings-save" value="default">SAVE</button>
-      <button value="cancel" formmethod="dialog">CLOSE</button>
-    </menu>
-  </dialog>
+  <!-- ============ conversation drawer (overlay) ============ -->
+  <div id="drawer-scrim" hidden></div>
+  <aside id="drawer" hidden>
+    <div class="drawer-head">
+      <span class="card-label">Conversation</span>
+      <div class="drawer-actions">
+        <button class="win-btn" id="chat-clear" title="Clear session">⟲</button>
+        <button class="win-btn" id="drawer-close" title="Close (Esc)">✕</button>
+      </div>
+    </div>
+    <main id="chat" aria-live="polite"></main>
+    <div class="wave" id="wave" hidden>
+      <canvas id="wave-canvas" width="480" height="36"></canvas>
+      <span class="listening-tag">● LISTENING</span>
+    </div>
+    <footer>
+      <form id="composer">
+        <input id="input" type="text" placeholder="Type to JARVIS…" autocomplete="off" />
+        <button type="submit" class="send-btn" title="Send">
+          <svg viewBox="0 0 24 24"><path d="M4 12 20 4l-4 8 4 8z"/></svg>
+        </button>
+      </form>
+    </footer>
+  </aside>
 
   <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/board.js"></script>
+  <script type="module" src="js/settings.js"></script>
   <script type="module" src="js/voice.js"></script>
 </body>
 </html>

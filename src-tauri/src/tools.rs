@@ -10,9 +10,8 @@ use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::db::{self, Db};
-use crate::secrets;
+use crate::hud::worker_get;
 
-const WORKER_BASE: &str = "https://analytics.myfreepdfedit.com";
 const SITES: [&str; 5] = ["pdfedit", "imagetool", "audiotool", "videotool", "invoicetool"];
 
 pub fn ist_now() -> chrono::DateTime<FixedOffset> {
@@ -91,6 +90,20 @@ pub fn definitions() -> Value {
         }
       },
       {
+        "name": "work_todos",
+        "description": "Sir's unified to-do list. list = current items (confirmed first, then suggested); add a task; complete/confirm/snooze/dismiss an existing one by id or fuzzy text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "enum": ["list", "add", "complete", "confirm", "snooze", "dismiss"] },
+            "text": { "type": "string", "description": "Task text (add), or fuzzy match (complete/confirm/snooze/dismiss)." },
+            "id": { "type": "integer", "description": "Exact todo id, if known." },
+            "snooze_hours": { "type": "integer", "minimum": 1, "maximum": 336, "description": "For snooze. Default 24." }
+          },
+          "required": ["action"]
+        }
+      },
+      {
         "name": "remember",
         "description": "Save a note to sir's persistent local notes store (survives restarts).",
         "input_schema": {
@@ -119,6 +132,7 @@ pub async fn run(app: &AppHandle, name: &str, input: &Value) -> Result<Value, St
         "list_timers" => list_timers(app),
         "system" => system(app, input),
         "calendar" => crate::calendar::run_tool(input).await,
+        "work_todos" => crate::todos::run_tool(app, input).await,
         "remember" => remember(app, input),
         "recall" => recall(app, input),
         other => Err(format!("Unknown tool: {other}")),
@@ -126,27 +140,6 @@ pub async fn run(app: &AppHandle, name: &str, input: &Value) -> Result<Value, St
 }
 
 // ---------- portfolio_stats ----------
-
-async fn worker_get(path: &str) -> Result<Value, String> {
-    let id = secrets::get(secrets::CF_ACCESS_CLIENT_ID)?
-        .ok_or("Cloudflare Access service token not configured (Settings).")?;
-    let secret = secrets::get(secrets::CF_ACCESS_CLIENT_SECRET)?
-        .ok_or("Cloudflare Access service token not configured (Settings).")?;
-
-    let res = reqwest::Client::new()
-        .get(format!("{WORKER_BASE}{path}"))
-        .header("CF-Access-Client-Id", id)
-        .header("CF-Access-Client-Secret", secret)
-        .send()
-        .await
-        .map_err(|e| format!("Worker unreachable: {e}"))?;
-
-    let status = res.status();
-    if !status.is_success() {
-        return Err(format!("Worker API {status} for {path}"));
-    }
-    res.json().await.map_err(|e| format!("Bad JSON from Worker: {e}"))
-}
 
 async fn portfolio_stats(input: &Value) -> Result<Value, String> {
     let site = input["site"].as_str().filter(|s| SITES.contains(s));
@@ -243,6 +236,12 @@ async fn weather(app: &AppHandle, input: &Value) -> Result<Value, String> {
         }),
     };
     Ok(out)
+}
+
+/// Board greeting strip — compact current conditions, cache-friendly.
+#[tauri::command]
+pub async fn weather_now(app: AppHandle) -> Result<Value, String> {
+    weather(&app, &json!({ "when": "now" })).await
 }
 
 fn urlencoding(s: &str) -> String {
