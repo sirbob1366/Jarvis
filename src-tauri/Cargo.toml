@@ -1,6 +1,6 @@
 [package]
 name = "jarvis-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "JARVIS — voice-driven native desktop assistant"
 edition = "2021"
 

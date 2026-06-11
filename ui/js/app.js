@@ -24,11 +24,20 @@ export const prefs = {
 
 // ---------- chat rendering ----------
 
+let hotkeyLabel = 'Ctrl+Shift+J';
+
 function emptyHint() {
   if (!chat.children.length) {
-    chat.innerHTML = `<div class="hint-empty">SYSTEMS ONLINE<br/><br/>Ctrl+Shift+J to speak · or type below</div>`;
+    const voiceHint = hotkeyLabel ? `${hotkeyLabel} to speak · or type below` : 'type below (no global hotkey available)';
+    chat.innerHTML = `<div class="hint-empty">SYSTEMS ONLINE<br/><br/>${voiceHint}</div>`;
   }
 }
+
+invoke('get_hotkey').then((hk) => {
+  hotkeyLabel = hk;
+  input.placeholder = hk ? `Type to JARVIS… (${hk} to speak)` : 'Type to JARVIS…';
+  emptyHint();
+});
 
 function addMsg(role, text, cls = '') {
   const hint = chat.querySelector('.hint-empty');

@@ -16,10 +16,31 @@ use tauri::{
     AppHandle, Emitter, Manager,
 };
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
-use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
+use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutEvent, ShortcutState};
 
 pub struct Flags {
     pub muted: AtomicBool,
+}
+
+/// Which summon hotkey actually registered ("" if none was available).
+pub struct ActiveHotkey(pub String);
+
+fn on_hotkey(app: &AppHandle, _sc: &Shortcut, event: ShortcutEvent) {
+    match event.state() {
+        ShortcutState::Pressed => {
+            show_main(app);
+            // The UI starts push-to-talk on this event.
+            let _ = app.emit("hotkey-summon", true);
+        }
+        ShortcutState::Released => {
+            let _ = app.emit("hotkey-released", true);
+        }
+    }
+}
+
+#[tauri::command]
+fn get_hotkey(app: AppHandle) -> String {
+    app.state::<ActiveHotkey>().0.clone()
 }
 
 fn show_main(app: &AppHandle) {
@@ -85,6 +106,7 @@ pub fn run() {
             toggle_mute,
             is_muted,
             hide_window,
+            get_hotkey,
         ])
         .setup(|app| {
             // ---- local SQLite (notes + settings) ----
@@ -135,21 +157,23 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // ---- global hotkey: Ctrl+Shift+J — summon + start listening ----
-            let hotkey = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyJ);
+            // ---- global hotkey: Ctrl+Shift+J, falling back to Ctrl+Alt+J ----
+            // Registration failure must NEVER abort startup (another app may
+            // own the combination) — the tray and window still work without it.
             use tauri_plugin_global_shortcut::GlobalShortcutExt;
-            app.global_shortcut().on_shortcut(hotkey, |app, _sc, event| {
-                match event.state() {
-                    ShortcutState::Pressed => {
-                        show_main(app);
-                        // Stage 2: the UI starts push-to-talk on this event.
-                        let _ = app.emit("hotkey-summon", true);
-                    }
-                    ShortcutState::Released => {
-                        let _ = app.emit("hotkey-released", true);
-                    }
-                }
-            })?;
+            let primary = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyJ);
+            let fallback = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyJ);
+            let gs = app.global_shortcut();
+            let active = if gs.on_shortcut(primary, on_hotkey).is_ok() {
+                "Ctrl+Shift+J"
+            } else if gs.on_shortcut(fallback, on_hotkey).is_ok() {
+                eprintln!("JARVIS: Ctrl+Shift+J is taken by another app; using Ctrl+Alt+J");
+                "Ctrl+Alt+J"
+            } else {
+                eprintln!("JARVIS: no global hotkey available; use the tray icon");
+                ""
+            };
+            app.manage(ActiveHotkey(active.into()));
 
             Ok(())
         })
