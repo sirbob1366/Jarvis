@@ -131,7 +131,25 @@ pub async fn run_tool(app: &AppHandle, input: &Value) -> Result<Value, String> {
         "add" => {
             let text = input["text"].as_str().filter(|t| !t.trim().is_empty()).ok_or("text required")?;
             let id = add(&db, text, "manual", None, None, false)?;
+            let _ = tauri::Emitter::emit(app, "todos-changed", ());
             Ok(json!({ "ok": true, "id": id }))
+        }
+        // The synthesizer's write path: extracted email/slack/calendar items
+        // arrive here as suggestions; origin_key dedupes across re-scans.
+        "suggest" => {
+            let items = input["items"].as_array().ok_or("items array required")?;
+            let mut filed = 0;
+            for it in items {
+                let Some(text) = it["text"].as_str().filter(|t| !t.trim().is_empty()) else { continue };
+                let source = it["source"].as_str().unwrap_or("work");
+                let origin = it["origin_key"].as_str();
+                let link = it["link"].as_str();
+                if add(&db, text, source, origin, link, true)? > 0 {
+                    filed += 1;
+                }
+            }
+            let _ = tauri::Emitter::emit(app, "todos-changed", ());
+            Ok(json!({ "ok": true, "filed": filed, "skipped_duplicates": items.len() - filed }))
         }
         "complete" | "confirm" | "snooze" | "dismiss" => {
             // Resolve by id or by fuzzy text match.

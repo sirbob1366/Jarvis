@@ -12,6 +12,8 @@ pub const CF_ACCESS_CLIENT_SECRET: &str = "cf_access_client_secret";
 pub const GOOGLE_OAUTH_TOKEN: &str = "google_oauth_token";
 pub const GOOGLE_CLIENT_ID: &str = "google_client_id";
 pub const GOOGLE_CLIENT_SECRET: &str = "google_client_secret";
+pub const WORK_GOOGLE_OAUTH_TOKEN: &str = "work_google_oauth_token";
+pub const SLACK_TOKEN: &str = "slack_token";
 
 const ALLOWED: &[&str] = &[
     ANTHROPIC_API_KEY,
@@ -20,6 +22,8 @@ const ALLOWED: &[&str] = &[
     GOOGLE_OAUTH_TOKEN,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
+    WORK_GOOGLE_OAUTH_TOKEN,
+    SLACK_TOKEN,
 ];
 
 fn entry(key: &str) -> Result<Entry, String> {

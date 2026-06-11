@@ -4,12 +4,14 @@
 mod calendar;
 mod claude;
 mod db;
+mod google_auth;
 mod hud;
 mod proactive;
 mod secrets;
 mod stt;
 mod todos;
 mod tools;
+mod work;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
@@ -139,6 +141,11 @@ pub fn run() {
             todos::todo_confirm,
             todos::todo_snooze,
             todos::todo_dismiss,
+            work::work_email_overview,
+            work::work_slack_overview,
+            work::work_calendar_today,
+            work::work_google_connect,
+            work::work_scan,
             toggle_mute,
             is_muted,
             hide_window,

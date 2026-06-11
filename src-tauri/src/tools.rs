@@ -91,14 +91,56 @@ pub fn definitions() -> Value {
       },
       {
         "name": "work_todos",
-        "description": "Sir's unified to-do list. list = current items (confirmed first, then suggested); add a task; complete/confirm/snooze/dismiss an existing one by id or fuzzy text.",
+        "description": "Sir's unified to-do list. list = current items (confirmed first, then suggested); add a task; complete/confirm/snooze/dismiss by id or fuzzy text; suggest = file extracted action items (from email/slack/calendar) as suggestions pending sir's confirmation.",
         "input_schema": {
           "type": "object",
           "properties": {
-            "action": { "type": "string", "enum": ["list", "add", "complete", "confirm", "snooze", "dismiss"] },
+            "action": { "type": "string", "enum": ["list", "add", "complete", "confirm", "snooze", "dismiss", "suggest"] },
             "text": { "type": "string", "description": "Task text (add), or fuzzy match (complete/confirm/snooze/dismiss)." },
             "id": { "type": "integer", "description": "Exact todo id, if known." },
-            "snooze_hours": { "type": "integer", "minimum": 1, "maximum": 336, "description": "For snooze. Default 24." }
+            "snooze_hours": { "type": "integer", "minimum": 1, "maximum": 336, "description": "For snooze. Default 24." },
+            "items": { "type": "array", "description": "For suggest: extracted action items.",
+              "items": { "type": "object", "properties": {
+                "text": { "type": "string" },
+                "source": { "type": "string", "enum": ["email", "slack", "calendar", "work"] },
+                "origin_key": { "type": "string", "description": "Stable dedupe key, e.g. 'email:<thread_id>' or 'slack:<ts>'." },
+                "link": { "type": "string", "description": "Gmail deep link or Slack permalink." }
+              }, "required": ["text"] } }
+          },
+          "required": ["action"]
+        }
+      },
+      {
+        "name": "work_email",
+        "description": "Sir's WORK Gmail, strictly read-only. unread_count = primary-inbox unread; today = today's primary mail (with deep links); search = Gmail query syntax; extract_action_items = recent unread candidates to triage into work_todos suggestions. Never read URLs or message ids aloud — say 'link on screen'.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "enum": ["unread_count", "today", "search", "extract_action_items"] },
+            "query": { "type": "string", "description": "For search: Gmail query, e.g. 'from:jon subject:COI'." }
+          },
+          "required": ["action"]
+        }
+      },
+      {
+        "name": "work_slack",
+        "description": "Sir's work Slack, strictly read-only (user token). unreads = unread DMs; mentions = mentions of sir in the last day (with permalinks); search = Slack search syntax; extract_action_items = mention candidates to triage into work_todos suggestions. Never read permalinks aloud.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "enum": ["unreads", "mentions", "search", "extract_action_items"] },
+            "query": { "type": "string", "description": "For search, e.g. 'from:@melvin COI'." }
+          },
+          "required": ["action"]
+        }
+      },
+      {
+        "name": "work_calendar",
+        "description": "Sir's WORK calendar (read-only): today's meetings, the next meeting, this week, or free gaps of 30+ minutes today.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "enum": ["today", "next", "week", "gaps"] }
           },
           "required": ["action"]
         }
@@ -133,6 +175,9 @@ pub async fn run(app: &AppHandle, name: &str, input: &Value) -> Result<Value, St
         "system" => system(app, input),
         "calendar" => crate::calendar::run_tool(input).await,
         "work_todos" => crate::todos::run_tool(app, input).await,
+        "work_email" => crate::work::email_tool(input).await,
+        "work_slack" => crate::work::slack_tool(input).await,
+        "work_calendar" => crate::work::calendar_tool(input).await,
         "remember" => remember(app, input),
         "recall" => recall(app, input),
         other => Err(format!("Unknown tool: {other}")),

@@ -666,6 +666,71 @@ li.done .todo-text { text-decoration: line-through; opacity: 0.45; }
 }
 
 /* ==========================================================================
+   TAB 3 — work
+   ========================================================================== */
+
+.work-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 24px 24px; gap: 16px; }
+.work-head { display: flex; align-items: center; gap: 8px; }
+.work-head .card-label { margin-left: auto; max-width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.work-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 16px;
+}
+.work-grid .hud-panel { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+
+.work-todo-list { list-style: none; margin: 0; padding: 0; flex: 1; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+.work-todo-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(78, 216, 255, 0.07); }
+.work-todo-list li:last-child { border-bottom: none; }
+
+.mail-list, .slack-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+.mail-list { flex: 1; }
+.mail-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 130px) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(78, 216, 255, 0.06);
+  cursor: pointer;
+}
+.mail-list li:hover .ml-subject { color: var(--glow); }
+.mail-list .ml-from { font: 600 11px var(--sans); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mail-list li.unread .ml-from { color: var(--text); }
+.mail-list .ml-subject { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--t-fast); }
+.mail-list .ml-snippet { grid-column: 1 / -1; font: 10px var(--mono); color: var(--dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.slack-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(78, 216, 255, 0.06);
+  cursor: pointer;
+}
+.slack-list .sl-from { font: 600 11px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slack-list .sl-text { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.conn-nudge {
+  margin: auto 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(8, 16, 26, 0.85);
+  font: 11px var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
    TAB 4 — settings
    ========================================================================== */
 

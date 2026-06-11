@@ -170,6 +170,9 @@ const TOOL_LABELS = {
   recall: 'searching my notes',
   calendar: 'consulting the calendar',
   work_todos: 'reviewing the task ledger',
+  work_email: 'scanning work mail',
+  work_slack: 'scanning Slack',
+  work_calendar: 'consulting the work calendar',
 };
 
 let toolEl = null;

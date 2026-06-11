@@ -49,6 +49,14 @@ function render() {
   </div>
 
   <div class="card settings-card">
+    <h3>Work accounts (read-only)</h3>
+    ${secretField('set-slack', 'Slack user token (xoxp-…)', 'scopes: search:read, *history, users:read')}
+    <button class="btn wide" id="work-g-connect">Connect Work Google</button>
+    <span class="hint" id="work-g-state"></span>
+    <span class="hint">Gmail + work calendar are read-only by design — JARVIS can never send or modify anything.</span>
+  </div>
+
+  <div class="card settings-card">
     <h3>Voice</h3>
     <label>Voice
       <select id="set-voice"></select>
@@ -94,7 +102,31 @@ const CONNECTIONS = [
   { key: 'anthropic', name: 'Anthropic API', check: checkAnthropic },
   { key: 'cf', name: 'Analytics Worker', check: checkWorker },
   { key: 'gcal', name: 'Google Calendar', check: checkCalendar },
+  { key: 'workg', name: 'Work Google', check: checkWorkGoogle },
+  { key: 'slack', name: 'Slack', check: checkSlack },
 ];
+
+async function checkWorkGoogle() {
+  const has = await inv('secret_exists', { key: 'work_google_oauth_token' });
+  if (!has) return { state: 'unset', note: 'not connected' };
+  try {
+    await inv('work_calendar_today');
+    return { state: 'ok', note: 'linked (read-only)' };
+  } catch (e) {
+    return { state: 'fail', note: String(e) };
+  }
+}
+
+async function checkSlack() {
+  const has = await inv('secret_exists', { key: 'slack_token' });
+  if (!has) return { state: 'unset', note: 'no token' };
+  try {
+    await inv('work_slack_overview');
+    return { state: 'ok', note: 'reachable' };
+  } catch (e) {
+    return { state: 'fail', note: String(e) };
+  }
+}
 
 async function checkAnthropic() {
   const has = await inv('secret_exists', { key: 'anthropic_api_key' });
@@ -213,12 +245,26 @@ function wire() {
     refreshConnections();
   });
 
+  document.getElementById('work-g-connect').addEventListener('click', async () => {
+    const state = document.getElementById('work-g-state');
+    await saveSecret('set-g-id', 'google_client_id');
+    await saveSecret('set-g-secret', 'google_client_secret');
+    state.textContent = 'waiting for Google consent (pick the work account)…';
+    try {
+      state.textContent = await inv('work_google_connect');
+    } catch (err) {
+      state.textContent = String(err);
+    }
+    refreshConnections();
+  });
+
   document.getElementById('settings-save').addEventListener('click', async () => {
     await saveSecret('set-api-key', 'anthropic_api_key');
     await saveSecret('set-cf-id', 'cf_access_client_id');
     await saveSecret('set-cf-secret', 'cf_access_client_secret');
     await saveSecret('set-g-id', 'google_client_id');
     await saveSecret('set-g-secret', 'google_client_secret');
+    await saveSecret('set-slack', 'slack_token');
     prefs.rate = Number(document.getElementById('set-rate').value);
     prefs.voiceName = document.getElementById('set-voice').value;
     await inv('setting_set', { key: 'city', value: document.getElementById('set-city').value.trim() || 'Pune' });

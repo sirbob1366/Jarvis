@@ -30,6 +30,21 @@ use portfolio_stats (query today, and week for context) and weather (today) — 
 then give a compact spoken-style briefing: greeting, the most important portfolio change, weather in one line, \
 and one actionable observation. Keep it under six sentences; this is read aloud.";
 
+const WORK_BRIEFING_ADDON: &str = " It is a weekday, so also fold in work: work_calendar (today) for the first \
+meeting and free gaps, work_email (unread_count) and work_slack (mentions) if connected — one sentence on what \
+needs attention. If a work tool is not connected, skip it silently.";
+
+fn briefing_prompt() -> String {
+    use chrono::Datelike;
+    let wd = tools::ist_now().weekday();
+    let weekday = !matches!(wd, chrono::Weekday::Sat | chrono::Weekday::Sun);
+    if weekday {
+        format!("{BRIEFING_PROMPT}{WORK_BRIEFING_ADDON}")
+    } else {
+        BRIEFING_PROMPT.to_string()
+    }
+}
+
 /// True if the briefing hasn't run today and we're inside the window.
 fn briefing_due(app: &AppHandle) -> bool {
     let db = app.state::<Db>();
@@ -60,7 +75,7 @@ pub fn maybe_brief(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         let Ok(Some(api_key)) = secrets::get(secrets::ANTHROPIC_API_KEY) else { return };
 
-        let history = vec![json!({ "role": "user", "content": BRIEFING_PROMPT })];
+        let history = vec![json!({ "role": "user", "content": briefing_prompt() })];
         match claude::run_exchange(&app, &api_key, history).await {
             Ok((text, _)) => {
                 // Streamed into the chat already; jarvis-done triggers TTS and
