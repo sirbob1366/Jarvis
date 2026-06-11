@@ -1,6 +1,7 @@
 //! JARVIS Desktop — Tauri shell: system tray, frameless HUD window,
 //! Ctrl+Shift+J global hotkey, single-instance lock, autostart.
 
+mod calendar;
 mod claude;
 mod db;
 mod proactive;
@@ -80,6 +81,7 @@ pub fn run() {
             stt::stt_stop,
             db::setting_get,
             db::setting_set,
+            calendar::calendar_connect,
             toggle_mute,
             is_muted,
             hide_window,

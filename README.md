@@ -82,6 +82,7 @@ supplies arguments:
 | `set_timer` / `list_timers` | Local timers/reminders — native Windows notification + spoken alert |
 | `system` | Open a URL in the default browser; current date/time (IST) |
 | `remember` / `recall` | Persistent notes store (SQLite in `%APPDATA%\com.sirbob.jarvis`) |
+| `calendar` | Google Calendar: today / next event / this week / create event |
 
 Try: *"How's pdfedit doing today?"*, *"Weather tomorrow?"*, *"Remind me in 20 minutes to stretch"*,
 *"Remember that the Ezoic payout lands on the 15th"*, *"What did I ask you to remember?"*
@@ -100,6 +101,21 @@ The analytics Worker sits behind Cloudflare Access, so JARVIS authenticates with
 3. JARVIS Settings (gear) → paste both values → SAVE. They live in the Windows Credential
    Manager and ride along as `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers.
 
+### Google Calendar setup
+
+1. [Google Cloud Console](https://console.cloud.google.com) → create (or pick) a project →
+   **APIs & Services → Library** → enable **Google Calendar API**.
+2. **APIs & Services → OAuth consent screen**: External, fill the app name (`JARVIS`),
+   add your Google account under **Test users** (no verification needed for personal use).
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID** →
+   application type **Desktop app** → copy the **Client ID** and **Client Secret**.
+4. JARVIS Settings → paste both → **CONNECT CALENDAR**. Your browser opens Google's consent
+   page; approve, and JARVIS catches the redirect on `127.0.0.1:17821`. Tokens (with offline
+   refresh) go into the Windows Credential Manager and renew silently.
+
+Try: *"What's on my calendar today?"*, *"When's my next meeting?"*,
+*"Put 'call the accountant' on Friday at 3pm for 45 minutes."*
+
 ## Architecture
 
 ```
@@ -113,12 +129,10 @@ src-tauri/src/
 Model: `claude-sonnet-4-6` (the spec's `claude-sonnet-4-20250514` is deprecated and retires
 2026-06-15, so the current Sonnet is used instead).
 
-## Roadmap / stages
+## Stages (all complete)
 
 1. ✅ Tray shell, frameless HUD window, global hotkey, single-instance, autostart, streaming text chat
-2. Voice: push-to-talk STT + TTS (UK male voice preferred), waveform, mute
-3. Tools: portfolio_stats (Cloudflare Access service token), weather (Open-Meteo), timers/reminders, system, remember/recall (SQLite)
-4. Morning briefing on first wake + 30-min anomaly polling with native notifications
-5. Google Calendar (OAuth desktop loopback) + `.msi` installer
-
-Stage-specific setup (Access service token, Google OAuth) is documented as those stages land.
+2. ✅ Voice: push-to-talk STT (WinRT) + TTS (UK male preferred), waveform, mute
+3. ✅ Tools: portfolio_stats (Cloudflare Access service token), weather (Open-Meteo), timers/reminders, system, remember/recall (SQLite)
+4. ✅ Morning briefing on first wake (06:00–12:00 IST window) + 30-min anomaly polling with native notifications
+5. ✅ Google Calendar (OAuth desktop loopback) + `.msi` installer

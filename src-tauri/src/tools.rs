@@ -77,6 +77,20 @@ pub fn definitions() -> Value {
         }
       },
       {
+        "name": "calendar",
+        "description": "Sir's Google Calendar: read today's events, the next event, this week, or create an event.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "enum": ["today", "next", "week", "create"] },
+            "title": { "type": "string", "description": "For create: the event title." },
+            "start_iso": { "type": "string", "description": "For create: RFC3339 start with IST offset, e.g. 2026-06-13T15:00:00+05:30." },
+            "duration_minutes": { "type": "integer", "minimum": 1, "maximum": 1440, "description": "For create. Default 30." }
+          },
+          "required": ["action"]
+        }
+      },
+      {
         "name": "remember",
         "description": "Save a note to sir's persistent local notes store (survives restarts).",
         "input_schema": {
@@ -104,6 +118,7 @@ pub async fn run(app: &AppHandle, name: &str, input: &Value) -> Result<Value, St
         "set_timer" => set_timer(app, input),
         "list_timers" => list_timers(app),
         "system" => system(app, input),
+        "calendar" => crate::calendar::run_tool(input).await,
         "remember" => remember(app, input),
         "recall" => recall(app, input),
         other => Err(format!("Unknown tool: {other}")),

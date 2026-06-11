@@ -172,12 +172,14 @@ const apiKeyInput = document.getElementById('set-api-key');
 const apiKeyState = document.getElementById('api-key-state');
 
 document.getElementById('settings-btn').addEventListener('click', async () => {
-  const [hasKey, hasCf] = await Promise.all([
+  const [hasKey, hasCf, hasCal] = await Promise.all([
     invoke('secret_exists', { key: 'anthropic_api_key' }),
     invoke('secret_exists', { key: 'cf_access_client_id' }),
+    invoke('secret_exists', { key: 'google_oauth_token' }),
   ]);
   apiKeyState.textContent = hasKey ? '✓ key stored in Credential Manager' : 'no key stored yet';
   document.getElementById('cf-state').textContent = hasCf ? '✓ service token stored' : 'not configured (portfolio tool offline)';
+  document.getElementById('g-state').textContent = hasCal ? '✓ calendar linked' : 'not connected';
   apiKeyInput.value = '';
   document.getElementById('set-cf-id').value = '';
   document.getElementById('set-cf-secret').value = '';
@@ -195,10 +197,29 @@ document.getElementById('settings-save').addEventListener('click', async (e) => 
   const cfSecret = document.getElementById('set-cf-secret').value.trim();
   if (cfId) await invoke('secret_set', { key: 'cf_access_client_id', value: cfId });
   if (cfSecret) await invoke('secret_set', { key: 'cf_access_client_secret', value: cfSecret });
+  const gId = document.getElementById('set-g-id').value.trim();
+  const gSecret = document.getElementById('set-g-secret').value.trim();
+  if (gId) await invoke('secret_set', { key: 'google_client_id', value: gId });
+  if (gSecret) await invoke('secret_set', { key: 'google_client_secret', value: gSecret });
   prefs.rate = Number(document.getElementById('set-rate').value);
   prefs.pitch = Number(document.getElementById('set-pitch').value);
   await invoke('setting_set', { key: 'city', value: document.getElementById('set-city').value.trim() || 'Pune' });
   dlg.close();
+});
+
+document.getElementById('g-connect').addEventListener('click', async () => {
+  const state = document.getElementById('g-state');
+  // Persist any freshly pasted client credentials first.
+  const gId = document.getElementById('set-g-id').value.trim();
+  const gSecret = document.getElementById('set-g-secret').value.trim();
+  if (gId) await invoke('secret_set', { key: 'google_client_id', value: gId });
+  if (gSecret) await invoke('secret_set', { key: 'google_client_secret', value: gSecret });
+  state.textContent = 'waiting for Google consent…';
+  try {
+    state.textContent = await invoke('calendar_connect');
+  } catch (err) {
+    state.textContent = String(err);
+  }
 });
 
 emptyHint();

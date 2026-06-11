@@ -195,6 +195,20 @@ dialog menu button {
   cursor: pointer;
 }
 
+.btn-wide {
+  width: 100%;
+  background: rgba(30, 200, 255, 0.1);
+  border: 1px solid var(--line40);
+  border-radius: 3px;
+  color: var(--glow);
+  font: 600 10px var(--mono);
+  letter-spacing: 0.15em;
+  padding: 9px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.btn-wide:hover { background: rgba(30, 200, 255, 0.22); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; }
 }
