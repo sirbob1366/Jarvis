@@ -14,6 +14,7 @@ mod stt;
 mod todos;
 mod tools;
 mod tts;
+mod vault;
 mod work;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -155,6 +156,11 @@ pub fn run() {
             tts::open_voice_settings,
             brain::brain_status,
             brain::brain_set_mode,
+            vault::vault_init,
+            vault::vault_tree,
+            vault::vault_read_file,
+            vault::vault_write_file,
+            vault::vault_status,
             toggle_mute,
             is_muted,
             hide_window,

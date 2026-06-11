@@ -301,10 +301,14 @@ async fn cli_turn(app: &AppHandle, message: &str) -> Result<String, String> {
                     first_delta_ms = Some(t0.elapsed().as_millis());
                 }
                 streamed.push_str(&t);
-                let _ = app.emit("jarvis-delta", json!({ "text": t }));
+                if !claude::is_quiet() {
+                    let _ = app.emit("jarvis-delta", json!({ "text": t }));
+                }
             }
             Some(TurnEvent::Tool(name)) => {
-                let _ = app.emit("jarvis-tool", json!({ "name": name }));
+                if !claude::is_quiet() {
+                    let _ = app.emit("jarvis-tool", json!({ "name": name }));
+                }
             }
             Some(TurnEvent::Result { text, is_error }) => {
                 let total = t0.elapsed().as_millis();

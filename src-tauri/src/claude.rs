@@ -45,6 +45,13 @@ pub struct Session {
     pub messages: Mutex<Vec<Value>>,
 }
 
+/// Background runs (weekly vault audit) stream nothing to the UI.
+pub static QUIET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn is_quiet() -> bool {
+    QUIET.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 #[derive(Clone, Serialize)]
 struct DeltaPayload<'a> {
     text: &'a str,
@@ -83,11 +90,11 @@ struct Turn {
     content: Vec<Value>,
 }
 
-async fn stream_turn(app: &AppHandle, api_key: &str, messages: &[Value]) -> Result<Turn, String> {
+async fn stream_turn(app: &AppHandle, api_key: &str, system: &str, messages: &[Value]) -> Result<Turn, String> {
     let body = json!({
         "model": DEFAULT_MODEL,
         "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
+        "system": system,
         "stream": true,
         "tools": tools::definitions(),
         "messages": messages,
@@ -145,7 +152,9 @@ async fn stream_turn(app: &AppHandle, api_key: &str, messages: &[Value]) -> Resu
                                     json: String::new(),
                                 });
                                 if let Block::ToolUse { name, .. } = blocks.last().unwrap() {
-                                    let _ = app.emit("jarvis-tool", ToolPayload { name });
+                                    if !is_quiet() {
+                                        let _ = app.emit("jarvis-tool", ToolPayload { name });
+                                    }
                                 }
                             }
                             _ => blocks.push(Block::Text(String::new())),
@@ -157,7 +166,9 @@ async fn stream_turn(app: &AppHandle, api_key: &str, messages: &[Value]) -> Resu
                                 if let Some(Block::Text(s)) = blocks.last_mut() {
                                     s.push_str(t);
                                 }
-                                let _ = app.emit("jarvis-delta", DeltaPayload { text: t });
+                                if !is_quiet() {
+                                    let _ = app.emit("jarvis-delta", DeltaPayload { text: t });
+                                }
                             }
                         }
                         Some("input_json_delta") => {
@@ -208,12 +219,11 @@ fn text_of(content: &[Value]) -> String {
 }
 
 /// Run a full exchange: stream, execute tools, repeat until end_turn.
-/// Used by the chat command and (Stage 4) the morning briefing.
-pub async fn run_exchange(app: &AppHandle, api_key: &str, history: Vec<Value>) -> Result<(String, Vec<Value>), String> {
+pub async fn run_exchange(app: &AppHandle, api_key: &str, system: &str, history: Vec<Value>) -> Result<(String, Vec<Value>), String> {
     let mut messages = history;
 
     for _round in 0..MAX_TOOL_ROUNDS {
-        let turn = stream_turn(app, api_key, &messages).await?;
+        let turn = stream_turn(app, api_key, system, &messages).await?;
         messages.push(json!({ "role": "assistant", "content": turn.content }));
 
         if turn.stop_reason != "tool_use" {
@@ -263,7 +273,10 @@ pub async fn api_converse(app: &AppHandle, message: &str) -> Result<String, Stri
         messages.clone()
     };
 
-    match run_exchange(app, &api_key, history).await {
+    // Vault context rides the system prompt, domain-routed by the message.
+    let system = format!("{SYSTEM_PROMPT}{}", crate::vault::context_for(app, message));
+
+    match run_exchange(app, &api_key, &system, history).await {
         Ok((full, new_history)) => {
             let mut messages = session.messages.lock().unwrap();
             *messages = new_history;

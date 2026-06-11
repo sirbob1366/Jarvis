@@ -731,6 +731,105 @@ li.done .todo-text { text-decoration: line-through; opacity: 0.45; }
 }
 
 /* ==========================================================================
+   TAB 5 — mind map (JARVIS-OS)
+   ========================================================================== */
+
+.mm-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 24px 24px; gap: 16px; }
+.mm-toolbar { display: flex; align-items: center; gap: 8px; }
+#mm-search {
+  width: 240px;
+  background: rgba(8, 16, 26, 0.7);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  color: var(--text);
+  font: 12px var(--sans);
+  padding: 7px 16px;
+  outline: none;
+}
+#mm-search:focus { border-color: var(--hairline-strong); }
+.mm-toolbar .card-label { margin-left: auto; max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.mm-stage { position: relative; flex: 1; min-height: 0; border: 1px solid var(--hairline); border-radius: var(--radius); background: rgba(8, 16, 26, 0.4); overflow: hidden; }
+#mm-svg { width: 100%; height: 100%; display: block; cursor: grab; }
+#mm-svg:active { cursor: grabbing; }
+
+.mm-panel {
+  position: absolute;
+  top: 16px; right: 16px; bottom: 16px;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: rgba(10, 20, 32, 0.96);
+  backdrop-filter: blur(14px);
+}
+.mm-md { flex: 1; overflow-y: auto; min-height: 0; user-select: text; scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; font-size: 12px; line-height: 1.55; }
+.mm-md h2, .mm-md h3, .mm-md h4, .mm-md h5 { color: var(--glow); font: 600 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; margin: 12px 0 4px; }
+.mm-md p { margin: 4px 0; color: var(--text); }
+.mm-md ul { margin: 4px 0; padding-left: 18px; }
+.mm-md li { margin: 2px 0; }
+.mm-md code { font-family: var(--mono); color: var(--glow); background: rgba(79, 216, 255, 0.07); padding: 0 4px; border-radius: 4px; }
+.mm-md pre { font: 11px var(--mono); background: rgba(5, 11, 18, 0.8); border: 1px solid var(--hairline); border-radius: 8px; padding: 8px; overflow-x: auto; }
+.mm-md .md-row { font: 11px var(--mono); color: var(--dim); }
+.mm-md .md-gap { height: 6px; }
+
+.mm-edit { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#mm-edit-text {
+  flex: 1;
+  background: rgba(5, 11, 18, 0.85);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  color: var(--text);
+  font: 12px var(--mono);
+  padding: 8px;
+  outline: none;
+  resize: none;
+}
+
+.mm-overlay {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px;
+  max-width: 86%;
+  padding: 16px;
+  background: rgba(10, 20, 32, 0.97);
+  z-index: 4;
+}
+.mm-overlay pre { font: 12px var(--mono); color: var(--text); white-space: pre-wrap; user-select: text; max-height: 50vh; overflow-y: auto; }
+
+.mm-init {
+  position: absolute;
+  left: 50%; top: 40%;
+  transform: translate(-50%, -50%);
+  width: 440px;
+  padding: 24px;
+  background: rgba(10, 20, 32, 0.97);
+}
+.mm-init p { font-size: 12px; line-height: 1.6; color: var(--text); margin: 0 0 16px; }
+
+/* ---- domain pin emphasis on the Command board ---- */
+
+body.pin-work #card-portfolio { opacity: 0.55; }
+body.pin-business #card-today, body.pin-business #card-todo, body.pin-business .inbox-strip { opacity: 0.55; }
+body.pin-personal #card-portfolio, body.pin-personal .inbox-strip { opacity: 0.55; }
+body[class*='pin-'] .board > .card { transition: opacity var(--t-med); }
+
+.pin-seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; }
+.pin-seg button {
+  background: transparent;
+  border: none;
+  color: var(--dimmer);
+  font: 600 9px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.pin-seg button:hover { color: var(--text); }
+.pin-seg button.active { color: var(--glow); background: rgba(79, 216, 255, 0.08); }
+
+/* ==========================================================================
    TAB 4 — settings
    ========================================================================== */
 

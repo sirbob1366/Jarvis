@@ -92,6 +92,23 @@ function render() {
   </div>
 
   <div class="card settings-card">
+    <h3>JARVIS-OS vault</h3>
+    <div class="conn-row" id="vault-row">
+      <span class="conn-dot unset"></span>
+      <span class="conn-name">Vault</span>
+      <span class="conn-err" id="vault-state">checking…</span>
+    </div>
+    <label>Default domain pin
+      <select id="set-domain-pin">
+        <option value="all">All</option><option value="work">Work</option>
+        <option value="business">Business</option><option value="personal">Personal</option>
+      </select>
+    </label>
+    <div class="toggle-row"><span>Ask before writing to the vault</span><input type="checkbox" id="set-writeback-ask" checked /></div>
+    <button class="btn wide" id="vault-init-btn" hidden>Initialize vault</button>
+  </div>
+
+  <div class="card settings-card">
     <h3>System</h3>
     <div class="toggle-row"><span>Start with Windows</span><input type="checkbox" id="set-autostart" /></div>
     <div class="toggle-row"><span>Mute voice</span><input type="checkbox" id="set-mute" /></div>
@@ -229,7 +246,32 @@ async function refreshState() {
   try {
     document.getElementById('set-autostart').checked = await inv('plugin:autostart|is_enabled');
   } catch { /* plugin command unavailable */ }
+  document.getElementById('set-domain-pin').value = (await inv('setting_get', { key: 'domain_pin' })) || 'all';
+  document.getElementById('set-writeback-ask').checked = (await inv('setting_get', { key: 'vault_writeback_ask' })) !== '0';
+  refreshVault();
   refreshVoices();
+}
+
+async function refreshVault() {
+  const row = document.getElementById('vault-row');
+  if (!row) return;
+  try {
+    const st = await inv('vault_status');
+    const dot = row.querySelector('.conn-dot');
+    const state = document.getElementById('vault-state');
+    const initBtn = document.getElementById('vault-init-btn');
+    if (!st.exists) {
+      dot.className = 'conn-dot unset';
+      state.textContent = 'not initialized';
+      initBtn.hidden = false;
+    } else {
+      dot.className = `conn-dot ${st.git_dirty ? 'fail' : 'ok'}`;
+      state.textContent = `${st.root} · git ${st.git_dirty ? 'dirty' : 'clean'}${st.last_audit_date ? ` · last audit ${st.last_audit_date}` : ' · no audit yet'}`;
+      initBtn.hidden = true;
+    }
+  } catch (e) {
+    document.getElementById('vault-state').textContent = String(e);
+  }
 }
 
 function refreshVoices() {
@@ -277,6 +319,24 @@ function wire() {
 
   document.getElementById('set-mute').addEventListener('change', async () => {
     await inv('toggle_mute');
+  });
+
+  document.getElementById('vault-init-btn').addEventListener('click', async () => {
+    document.getElementById('vault-state').textContent = 'initializing…';
+    try {
+      document.getElementById('vault-state').textContent = await inv('vault_init');
+    } catch (e) {
+      document.getElementById('vault-state').textContent = String(e);
+    }
+    refreshVault();
+  });
+
+  document.getElementById('set-domain-pin').addEventListener('change', async (e) => {
+    await inv('setting_set', { key: 'domain_pin', value: e.target.value });
+  });
+
+  document.getElementById('set-writeback-ask').addEventListener('change', async (e) => {
+    await inv('setting_set', { key: 'vault_writeback_ask', value: e.target.checked ? '1' : '0' });
   });
 
   document.getElementById('set-autostart').addEventListener('change', async (e) => {

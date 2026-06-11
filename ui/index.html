@@ -23,6 +23,9 @@
       <button class="rail-btn" data-tab="work" title="Work">
         <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>
       </button>
+      <button class="rail-btn" data-tab="mindmap" title="Mind Map — JARVIS-OS">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.4"/><circle cx="5" cy="5" r="1.8"/><circle cx="19" cy="5" r="1.8"/><circle cx="5" cy="19" r="1.8"/><circle cx="19" cy="19" r="1.8"/><path d="M10.3 10.3 6.3 6.3M13.7 10.3l4-4M10.3 13.7l-4 4M13.7 13.7l4 4"/></svg>
+      </button>
     </nav>
     <div class="rail-bottom">
       <button class="rail-btn" id="mute-btn" title="Mute voice">
@@ -39,6 +42,12 @@
     <header id="titlebar" data-tauri-drag-region>
       <span class="wordmark" data-tauri-drag-region>J.A.R.V.I.S.</span>
       <span class="titlebar-status" id="titlebar-status" data-tauri-drag-region></span>
+      <div class="pin-seg" id="domain-pin" title="Domain pin — scopes context and board emphasis">
+        <button data-pin="all" class="active">All</button>
+        <button data-pin="work">Work</button>
+        <button data-pin="business">Biz</button>
+        <button data-pin="personal">Me</button>
+      </div>
       <button class="win-btn" id="hide-btn" title="Hide to tray (Esc)">—</button>
     </header>
 
@@ -145,6 +154,11 @@
       <div class="work-wrap" id="work-root"></div>
     </section>
 
+    <!-- ===== TAB 5 (before Settings): MIND MAP — JARVIS-OS ===== -->
+    <section class="tab" id="tab-mindmap">
+      <div class="mm-wrap" id="mm-root"></div>
+    </section>
+
     <!-- ===== TAB 4: SETTINGS ===== -->
     <section class="tab" id="tab-settings">
       <div class="settings-wrap" id="settings-root"></div>
@@ -180,6 +194,7 @@
   <script type="module" src="js/board.js"></script>
   <script type="module" src="js/hud.js"></script>
   <script type="module" src="js/work.js"></script>
+  <script type="module" src="js/mindmap.js"></script>
   <script type="module" src="js/settings.js"></script>
   <script type="module" src="js/voice.js"></script>
 </body>

@@ -174,8 +174,68 @@ pub fn definitions() -> Value {
         }
       },
       {
+        "name": "log_decision",
+        "description": "Append a decision to the JARVIS-OS vault's append-only decision log (decisions/log.md), domain-tagged and git-committed. OFFER first ('Shall I log that decision, sir?') — only call with confirmed:true after sir agrees.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "domain": { "type": "string", "enum": ["work", "business", "personal"] },
+            "decision": { "type": "string" },
+            "why": { "type": "string" },
+            "confirmed": { "type": "boolean", "description": "true only after sir explicitly agreed." }
+          },
+          "required": ["domain", "decision", "why"]
+        }
+      },
+      {
+        "name": "save_note",
+        "description": "Create or append a dated note in a vault domain folder (work/business/personal), git-committed. Offer before writing; call with confirmed:true after sir agrees.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "domain": { "type": "string", "enum": ["work", "business", "personal"] },
+            "topic": { "type": "string", "description": "Becomes/extends <domain>/<topic-slug>.md" },
+            "content": { "type": "string" },
+            "confirmed": { "type": "boolean" }
+          },
+          "required": ["domain", "topic", "content"]
+        }
+      },
+      {
+        "name": "update_context",
+        "description": "Edit a vault markdown file with diff-style care: exact old_text replaced by new_text (empty old_text appends). Git-committed. Offer before writing; confirmed:true after sir agrees.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string", "description": "Vault-relative, e.g. work/context.md" },
+            "old_text": { "type": "string", "description": "Exact existing text to replace; empty = append." },
+            "new_text": { "type": "string" },
+            "confirmed": { "type": "boolean" }
+          },
+          "required": ["file", "new_text"]
+        }
+      },
+      {
+        "name": "vault_search",
+        "description": "Search sir's JARVIS-OS vault (second brain: work/business/personal context, decisions, connections) for lines matching a query. Use before answering anything the vault might know.",
+        "input_schema": {
+          "type": "object",
+          "properties": { "query": { "type": "string" } },
+          "required": ["query"]
+        }
+      },
+      {
+        "name": "vault_read",
+        "description": "Read a vault file in full (vault-relative path, e.g. decisions/log.md or business/context.md).",
+        "input_schema": {
+          "type": "object",
+          "properties": { "file": { "type": "string" } },
+          "required": ["file"]
+        }
+      },
+      {
         "name": "remember",
-        "description": "Save a note to sir's persistent local notes store (survives restarts).",
+        "description": "Save a quick note to sir's lightweight local notes store (SQLite). For durable domain knowledge prefer save_note (the vault).",
         "input_schema": {
           "type": "object",
           "properties": { "note": { "type": "string" } },
@@ -208,6 +268,11 @@ pub async fn run(app: &AppHandle, name: &str, input: &Value) -> Result<Value, St
         "work_calendar" => crate::work::calendar_tool(input).await,
         "navigate_app" => navigate_app(app, input),
         "hud_data" => hud_data(input).await,
+        "log_decision" => crate::vault::log_decision(app, input),
+        "save_note" => crate::vault::save_note(app, input),
+        "update_context" => crate::vault::update_context(app, input),
+        "vault_search" => crate::vault::vault_search(input),
+        "vault_read" => crate::vault::vault_read_tool(input),
         "remember" => remember(app, input),
         "recall" => recall(app, input),
         other => Err(format!("Unknown tool: {other}")),

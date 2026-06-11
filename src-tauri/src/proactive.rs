@@ -14,6 +14,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 
+use crate::claude;
 use crate::db::{self, Db};
 use crate::secrets;
 use crate::tools;
@@ -33,15 +34,32 @@ const WORK_BRIEFING_ADDON: &str = " It is a weekday, so also fold in work: work_
 meeting and free gaps, work_email (unread_count) and work_slack (mentions) if connected — one sentence on what \
 needs attention. If a work tool is not connected, skip it silently.";
 
-fn briefing_prompt() -> String {
+const VAULT_BRIEFING_ADDON: &str = " Also consult the JARVIS-OS vault (vault_search / the vault context you \
+already have): if a logged decision has a deadline near today or a project note matches today's meetings, \
+mention it in one sentence — at most one item, only if genuinely relevant.";
+
+fn briefing_prompt(app: &AppHandle) -> String {
     use chrono::Datelike;
-    let wd = tools::ist_now().weekday();
-    let weekday = !matches!(wd, chrono::Weekday::Sat | chrono::Weekday::Sun);
+    let now = tools::ist_now();
+    let weekday = !matches!(now.weekday(), chrono::Weekday::Sat | chrono::Weekday::Sun);
+    let mut p = BRIEFING_PROMPT.to_string();
     if weekday {
-        format!("{BRIEFING_PROMPT}{WORK_BRIEFING_ADDON}")
-    } else {
-        BRIEFING_PROMPT.to_string()
+        p.push_str(WORK_BRIEFING_ADDON);
     }
+    if crate::vault::exists() {
+        p.push_str(VAULT_BRIEFING_ADDON);
+        // Monday: fold in Sunday's context-audit health note.
+        let db = app.state::<Db>();
+        if now.weekday() == chrono::Weekday::Mon {
+            if let Some(audit) = db::kv_get(&db, "vault_last_audit") {
+                let clip: String = audit.chars().take(400).collect();
+                p.push_str(&format!(
+                    " Include one short context-audit health note based on Sunday's audit: {clip}"
+                ));
+            }
+        }
+    }
+    p
 }
 
 /// True if the briefing hasn't run today and we're inside the window.
@@ -77,7 +95,7 @@ pub fn maybe_brief(app: &AppHandle) {
 
         // Routed through the brain (subscription CLI first, API fallback);
         // the session keeps the exchange so follow-up questions have context.
-        match crate::brain::converse(&app, &briefing_prompt()).await {
+        match crate::brain::converse(&app, &briefing_prompt(&app)).await {
             Ok(text) => {
                 let _ = app.emit("jarvis-done", json!({ "text": text }));
             }
@@ -110,6 +128,53 @@ pub fn start(app: &AppHandle) {
             }
         }
     });
+
+    // Weekly vault audit — Sunday evening (configurable), quiet run; the
+    // result feeds Monday's briefing and the Mind Map scorecard overlay.
+    let app3 = app.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
+            maybe_audit(&app3).await;
+        }
+    });
+}
+
+const AUDIT_PROMPT: &str = "Run the vault /audit skill now: read CLAUDE.md, the three domain folders, \
+decisions/log.md and connections.md (vault_read / vault_search), then produce the Four-Cs gap report in the \
+exact AUDIT block format the skill defines, ending with the one spoken sentence.";
+
+async fn maybe_audit(app: &AppHandle) {
+    use chrono::Datelike;
+    if !crate::vault::exists() {
+        return;
+    }
+    let now = tools::ist_now();
+    let today = now.format("%Y-%m-%d").to_string();
+    let (day, hour) = {
+        let db = app.state::<Db>();
+        if db::kv_get(&db, "vault_last_audit_date").as_deref() == Some(today.as_str()) {
+            return;
+        }
+        (
+            db::kv_get(&db, "audit_day").unwrap_or_else(|| "Sun".into()),
+            db::kv_get(&db, "audit_hour").and_then(|v| v.parse::<u32>().ok()).unwrap_or(19),
+        )
+    };
+    if format!("{:?}", now.weekday()) != day || now.hour() < hour {
+        return;
+    }
+
+    claude::QUIET.store(true, std::sync::atomic::Ordering::Relaxed);
+    let result = crate::brain::converse(app, AUDIT_PROMPT).await;
+    claude::QUIET.store(false, std::sync::atomic::Ordering::Relaxed);
+
+    if let Ok(text) = result {
+        let db = app.state::<Db>();
+        let _ = db::kv_set(&db, "vault_last_audit", &text);
+        let _ = db::kv_set(&db, "vault_last_audit_date", &today);
+        let _ = app.emit("vault-audit", json!({ "text": text }));
+    }
 }
 
 async fn poll_anomalies(app: &AppHandle) -> Result<(), String> {

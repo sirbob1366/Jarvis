@@ -18,7 +18,7 @@ export const prefs = {
 
 // ---------- tab router ----------
 
-const tabs = ['command', 'hud', 'work', 'settings'];
+const tabs = ['command', 'hud', 'work', 'mindmap', 'settings'];
 let activeTab = 'command';
 
 export function navigate(tab, detail = null) {
@@ -175,6 +175,11 @@ const TOOL_LABELS = {
   work_calendar: 'consulting the work calendar',
   navigate_app: 'bringing it on screen',
   hud_data: 'pulling analytics',
+  log_decision: 'logging the decision',
+  save_note: 'filing a vault note',
+  update_context: 'updating the vault',
+  vault_search: 'searching the vault',
+  vault_read: 'reading the vault',
 };
 
 let toolEl = null;
@@ -294,6 +299,26 @@ listen('hotkey-summon', () => {
 });
 listen('hotkey-released', () => {
   document.dispatchEvent(new CustomEvent('ptt-stop'));
+});
+
+// ---------- domain pin (scopes vault context + board emphasis) ----------
+
+const pinSeg = document.getElementById('domain-pin');
+
+async function setPin(pin) {
+  await invoke('setting_set', { key: 'domain_pin', value: pin });
+  pinSeg.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.pin === pin));
+  document.body.className = document.body.className.replace(/\bpin-\w+\b/g, '').trim();
+  if (pin !== 'all') document.body.classList.add(`pin-${pin}`);
+}
+
+pinSeg.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pin]');
+  if (b) setPin(b.dataset.pin);
+});
+
+invoke('setting_get', { key: 'domain_pin' }).then((pin) => {
+  if (pin && pin !== 'all') setPin(pin);
 });
 
 emptyHint();
