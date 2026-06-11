@@ -122,6 +122,13 @@ listen('timer-fired', ({ payload }) => {
   document.dispatchEvent(new CustomEvent('jarvis-said', { detail: payload.label }));
 });
 
+// ---------- proactive anomaly alerts ----------
+
+listen('anomaly-alert', ({ payload }) => {
+  addMsg('jarvis', `⚠ ${payload.text}`);
+  document.dispatchEvent(new CustomEvent('jarvis-said', { detail: payload.text }));
+});
+
 // ---------- composer ----------
 
 document.getElementById('composer').addEventListener('submit', (e) => {

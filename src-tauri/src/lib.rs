@@ -3,6 +3,7 @@
 
 mod claude;
 mod db;
+mod proactive;
 mod secrets;
 mod stt;
 mod tools;
@@ -25,6 +26,8 @@ fn show_main(app: &AppHandle) {
         let _ = win.show();
         let _ = win.set_focus();
     }
+    // First wake of the day → morning briefing.
+    proactive::maybe_brief(app);
 }
 
 #[tauri::command]
@@ -64,6 +67,7 @@ pub fn run() {
         .manage(claude::Session::default())
         .manage(stt::SttState::default())
         .manage(tools::Timers::default())
+        .manage(proactive::AlertLog::default())
         .manage(Flags {
             muted: AtomicBool::new(false),
         })
@@ -84,6 +88,9 @@ pub fn run() {
             // ---- local SQLite (notes + settings) ----
             let database = db::init(app.handle())?;
             app.manage(database);
+
+            // ---- proactive loops: morning briefing + anomaly watch ----
+            proactive::start(app.handle());
 
             // ---- system tray ----
             let open = MenuItem::with_id(app, "open", "Open JARVIS", true, None::<&str>)?;
