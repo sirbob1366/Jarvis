@@ -4,6 +4,7 @@
 
 import { inv } from './data.js';
 import { prefs } from './app.js';
+import { voiceInventory, hasNaturalVoice } from './voice.js';
 
 const root = document.getElementById('settings-root');
 
@@ -65,6 +66,10 @@ function render() {
       <input id="set-rate" type="range" min="0.7" max="1.5" step="0.05" />
     </label>
     <button class="btn wide" id="voice-test">Test voice</button>
+    <div id="natural-hint" hidden>
+      <span class="hint">No natural neural voice detected. Windows Settings → Time &amp; Language → Speech → Add voices — install one (e.g. Ryan, en-GB) and JARVIS will use it.</span>
+      <button class="btn wide" id="open-voice-settings" style="margin-top:8px">Open Windows voice settings</button>
+    </div>
   </div>
 
   <div class="card settings-card">
@@ -197,21 +202,28 @@ async function refreshState() {
 function refreshVoices() {
   const sel = document.getElementById('set-voice');
   if (!sel) return;
-  const voices = speechSynthesis.getVoices();
-  sel.innerHTML = '<option value="">Auto (UK male preferred)</option>' +
-    voices.map((v) => {
-      const natural = /natural/i.test(v.name) ? ' ★' : '';
-      return `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name}${natural}</option>`;
-    }).join('');
+  // Both engines: native WinRT (where Natural voices live) + webview SAPI.
+  const opts = voiceInventory.map((v) => {
+    const key = `${v.engine}:${v.name}`;
+    const flags = `${v.natural ? ' ★ Natural' : ''}${v.engine === 'native' ? '' : ' (legacy)'}`;
+    return `<option value="${key.replace(/"/g, '&quot;')}">${v.name}${flags}</option>`;
+  });
+  sel.innerHTML = '<option value="">Auto (Natural en-GB male preferred)</option>' + opts.join('');
   sel.value = prefs.voiceName;
+  const hint = document.getElementById('natural-hint');
+  if (hint) hint.hidden = hasNaturalVoice();
 }
-speechSynthesis.addEventListener?.('voiceschanged', refreshVoices);
+document.addEventListener('voices-ready', refreshVoices);
 
 function wire() {
   document.getElementById('conn-recheck').addEventListener('click', refreshConnections);
 
   document.getElementById('set-rate').addEventListener('input', (e) => {
     document.getElementById('rate-label').textContent = `${Number(e.target.value).toFixed(2)}×`;
+  });
+
+  document.getElementById('open-voice-settings').addEventListener('click', () => {
+    inv('open_voice_settings').catch(() => {});
   });
 
   document.getElementById('voice-test').addEventListener('click', () => {

@@ -11,6 +11,7 @@ mod secrets;
 mod stt;
 mod todos;
 mod tools;
+mod tts;
 mod work;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -146,6 +147,9 @@ pub fn run() {
             work::work_calendar_today,
             work::work_google_connect,
             work::work_scan,
+            tts::tts_voices,
+            tts::tts_synthesize,
+            tts::open_voice_settings,
             toggle_mute,
             is_muted,
             hide_window,

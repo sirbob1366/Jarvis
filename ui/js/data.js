@@ -62,6 +62,11 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+/** Refresh everything now (morning briefing sync). */
+export function kickAll() {
+  for (const p of pollers) p.kick?.();
+}
+
 // ---------- small DOM/format helpers ----------
 
 export function fmt(n) {

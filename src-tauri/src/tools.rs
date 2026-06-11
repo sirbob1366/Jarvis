@@ -146,6 +146,34 @@ pub fn definitions() -> Value {
         }
       },
       {
+        "name": "navigate_app",
+        "description": "Switch what sir's JARVIS app is showing: a tab, an HUD view, or a site drill-in. Use it whenever your answer has a richer on-screen view ('show me the image site's week' → answer AND navigate to hud/site/imagetool).",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "tab": { "type": "string", "enum": ["command", "hud", "work", "settings"] },
+            "view": { "type": "string", "enum": ["overview", "site", "live", "revenue"], "description": "HUD tab only." },
+            "site": { "type": "string", "enum": SITES, "description": "HUD site drill-in." }
+          },
+          "required": ["tab"]
+        }
+      },
+      {
+        "name": "hud_data",
+        "description": "Direct analytics queries beyond portfolio_stats summaries — everything the HUD can show: overview (today per-site + 7-day avg + live + anomalies), timeseries (chart data), breakdown (top pages/referrers/countries/devices/browsers), live (30-min counters + stream), revenue (monthly ledger with RPM).",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string", "enum": ["overview", "timeseries", "breakdown", "live", "revenue"] },
+            "site": { "type": "string", "enum": SITES },
+            "range": { "type": "string", "enum": ["today", "7d", "30d", "90d"], "description": "Default 7d." },
+            "dim": { "type": "string", "enum": ["page", "referrer", "country", "device", "browser"], "description": "For breakdown." },
+            "month": { "type": "string", "description": "For revenue: YYYY-MM, default current." }
+          },
+          "required": ["query"]
+        }
+      },
+      {
         "name": "remember",
         "description": "Save a note to sir's persistent local notes store (survives restarts).",
         "input_schema": {
@@ -178,6 +206,8 @@ pub async fn run(app: &AppHandle, name: &str, input: &Value) -> Result<Value, St
         "work_email" => crate::work::email_tool(input).await,
         "work_slack" => crate::work::slack_tool(input).await,
         "work_calendar" => crate::work::calendar_tool(input).await,
+        "navigate_app" => navigate_app(app, input),
+        "hud_data" => hud_data(input).await,
         "remember" => remember(app, input),
         "recall" => recall(app, input),
         other => Err(format!("Unknown tool: {other}")),
@@ -382,6 +412,59 @@ fn system(app: &AppHandle, input: &Value) -> Result<Value, String> {
             Ok(json!({ "ok": true, "opened": url }))
         }
         other => Err(format!("Unknown action: {other}")),
+    }
+}
+
+// ---------- navigate_app / hud_data ----------
+
+fn navigate_app(app: &AppHandle, input: &Value) -> Result<Value, String> {
+    let tab = input["tab"].as_str().unwrap_or("command");
+    if !["command", "hud", "work", "settings"].contains(&tab) {
+        return Err(format!("Unknown tab: {tab}"));
+    }
+    let _ = app.emit("navigate", json!({
+        "tab": tab,
+        "view": input["view"],
+        "site": input["site"],
+    }));
+    Ok(json!({ "ok": true, "showing": tab, "note": "On screen now, sir's app has switched — keep the spoken answer brief; the view carries the detail." }))
+}
+
+async fn hud_data(input: &Value) -> Result<Value, String> {
+    let site = input["site"].as_str().filter(|s| SITES.contains(s));
+    let site_q = site.map(|s| format!("&site={s}")).unwrap_or_default();
+    let to = ist_now().format("%Y-%m-%d").to_string();
+    let days = match input["range"].as_str().unwrap_or("7d") {
+        "today" => 0,
+        "30d" => 29,
+        "90d" => 89,
+        _ => 6,
+    };
+    let from = (ist_now() - chrono::Duration::days(days)).format("%Y-%m-%d").to_string();
+
+    match input["query"].as_str().unwrap_or("") {
+        "overview" => worker_get("/api/overview").await,
+        "timeseries" => {
+            let gran = if days == 0 { "hour" } else { "day" };
+            worker_get(&format!("/api/timeseries?from={from}&to={to}&granularity={gran}{site_q}")).await
+        }
+        "breakdown" => {
+            let dim = input["dim"].as_str().unwrap_or("page");
+            worker_get(&format!("/api/breakdown?from={from}&to={to}&dim={dim}&limit=10{site_q}")).await
+        }
+        "live" => worker_get("/api/live").await.map(|mut v| {
+            if let Some(obj) = v.as_object_mut() {
+                if let Some(events) = obj.get_mut("events").and_then(|e| e.as_array_mut()) {
+                    events.truncate(10);
+                }
+            }
+            v
+        }),
+        "revenue" => {
+            let month = input["month"].as_str().map(String::from).unwrap_or_else(|| to[..7].to_string());
+            worker_get(&format!("/api/revenue?month={month}")).await
+        }
+        other => Err(format!("Unknown hud_data query: {other}")),
     }
 }
 

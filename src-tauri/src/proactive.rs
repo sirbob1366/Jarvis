@@ -75,6 +75,9 @@ pub fn maybe_brief(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         let Ok(Some(api_key)) = secrets::get(secrets::ANTHROPIC_API_KEY) else { return };
 
+        // The board stagger-paints in sync with the spoken briefing.
+        let _ = app.emit("briefing-start", ());
+
         let history = vec![json!({ "role": "user", "content": briefing_prompt() })];
         match claude::run_exchange(&app, &api_key, history).await {
             Ok((text, _)) => {

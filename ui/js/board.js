@@ -3,7 +3,9 @@
 // Everything pauses while hidden (data.js). Cards degrade to a dim state
 // with a one-tap path to Settings — never a blank hole.
 
-import { inv, cached, store, poll, agoLabel, fmt, tickNumber, deltaEl } from './data.js';
+import { inv, cached, store, poll, agoLabel, fmt, tickNumber, deltaEl, kickAll } from './data.js';
+
+const { listen } = window.__TAURI__.event;
 
 // ---------- greeting + clock ----------
 
@@ -350,7 +352,21 @@ async function refreshInbox() {
 }
 poll('inbox', 5 * 60 * 1000, refreshInbox);
 
-// ---------- stagger paint on load ----------
+// ---------- stagger paint on load + in sync with the spoken briefing ----------
 
-document.querySelector('.board').classList.add('stagger');
-setTimeout(() => document.querySelector('.board').classList.remove('stagger'), 900);
+function staggerPaint() {
+  const board = document.querySelector('.board');
+  board.classList.remove('stagger');
+  void board.offsetWidth; // restart the animation
+  board.classList.add('stagger');
+  setTimeout(() => board.classList.remove('stagger'), 900);
+}
+
+staggerPaint();
+
+// Morning briefing: refresh every card and stagger-paint (~600ms) so what
+// JARVIS says matches what appears.
+listen('briefing-start', () => {
+  kickAll();
+  staggerPaint();
+});

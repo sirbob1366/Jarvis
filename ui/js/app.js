@@ -173,6 +173,8 @@ const TOOL_LABELS = {
   work_email: 'scanning work mail',
   work_slack: 'scanning Slack',
   work_calendar: 'consulting the work calendar',
+  navigate_app: 'bringing it on screen',
+  hud_data: 'pulling analytics',
 };
 
 let toolEl = null;
@@ -205,6 +207,11 @@ listen('anomaly-alert', ({ payload }) => {
 });
 
 listen('todos-changed', () => document.dispatchEvent(new CustomEvent('board-refresh')));
+
+// navigate_app tool — the model switches what the app is showing.
+listen('navigate', ({ payload }) => {
+  navigate(payload.tab, { view: payload.view || null, site: payload.site || null });
+});
 
 // ---------- composers ----------
 
