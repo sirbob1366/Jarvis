@@ -1,138 +1,142 @@
-# JARVIS Desktop
+# JARVIS Desktop — Command Center (v2)
 
-Voice-driven native desktop assistant for Windows — the desktop embodiment of the
-[portfolio-analytics JARVIS](https://github.com/sirbob1366/portfolio-analytics). It sits in the
-system tray as an arc reactor, summons with **Ctrl+Shift+J**, listens, speaks, briefs you each
-morning, and carries tools (portfolio stats, weather, timers, calendar, persistent notes).
+Voice-driven native desktop command center for Windows — the desktop embodiment of the
+[portfolio-analytics JARVIS](https://github.com/sirbob1366/portfolio-analytics). It lives in the
+tray as an arc reactor, summons with **Ctrl+Shift+J**, speaks with a natural neural voice, briefs
+you each morning, watches your traffic, reads your work inbox (read-only), keeps a unified to-do
+list, and maintains a git-versioned second brain (JARVIS-OS).
 
-Built with **Tauri 2** (Rust backend + WebView2 frontend) — not Electron. The installed app is a
-few MB, idles near zero CPU, and uses the OS webview.
+Built with **Tauri 2** (Rust backend + WebView2 frontend). Installed size a few MB, idles near
+zero CPU; all polling pauses while hidden except the 30-minute anomaly watch.
 
-## Prerequisites (Windows)
+## The four tabs (left icon rail)
 
-| Requirement | Install |
-| --- | --- |
-| Rust (MSVC toolchain) | `winget install Rustlang.Rustup` then restart the shell (`cargo --version` to verify) |
-| VS Build Tools (C++ workload) | `winget install Microsoft.VisualStudio.2022.BuildTools` → select "Desktop development with C++" |
-| WebView2 runtime | Preinstalled on Windows 11; otherwise [Evergreen installer](https://developer.microsoft.com/microsoft-edge/webview2/) |
-| Node.js ≥ 20 | for the Tauri CLI (`npm install`) |
+1. **Command** — a glance board, not a chat window: greeting strip (clock + weather), portfolio
+   card (mini arc reactor vs 7-day average, deltas, 5-dot site strip, live counter, anomaly
+   chips), Today card (next meeting countdown, free-gap hint), To-Do card, inbox/Slack strip.
+   Paints instantly from cache, refreshes live (weather 30 min · portfolio 60 s · calendar/todos
+   5 min). Conversation opens as an overlay drawer — the board never navigates away.
+2. **HUD** — the analytics dashboard rebuilt natively against the same `/api/*` endpoints
+   (service-token auth through Rust; no webview embedding, no Access login): Overview reactor
+   with orbiting site nodes, site drill-ins (range picker, DPR-sharp charts, five breakdowns),
+   Live (10 s stream), Revenue (view **and** edit the ledger + FX rate). Plus native anomaly
+   toasts and a draggable always-on-top **mini reactor** widget (tray toggle).
+3. **Work** — read-only by design: Gmail (unread/today/search/action items, deep links), Slack
+   (mentions + unread DMs, permalinks), work calendar (next meeting, ≥30-min gaps), and the
+   unified to-do list (suggested-until-confirmed, confirm/complete/snooze). "Catch me up" = the
+   last 4 hours in under 20 spoken seconds.
+4. **Mind Map** — the JARVIS-OS vault visualized (see below). **Settings** holds every credential,
+   the brain mode, voice picker, briefing window, and a connection-status row per integration
+   with the last error visible.
 
-## Build & run
+## The brain — subscription-first
 
-```sh
-npm install        # Tauri CLI
-npm run dev        # development app with hot reload
-npm run build      # release build → src-tauri/target/release/bundle/msi/JARVIS_*.msi
-```
+Settings → Brain has two modes:
 
-The `.msi` from `npm run build` is a real installable app: installs to Program Files,
-Start-menu entry, tray icon, uninstaller. It is unsigned — Windows SmartScreen will show
-"unrecognized app" once; choose *More info → Run anyway* (code-signing certificates are the
-only way around that, and unnecessary for a personal install).
+- **Claude Code mode (default):** turns route through the local Claude Code CLI headlessly
+  (`claude -p`, stream-json in/out) — billing your **Max subscription**, not API credits. One
+  warm persistent process per conversation removes the 2–4 s spawn cost; expect roughly
+  +0.3–0.8 s to first word versus the raw API (both latencies are measured per turn and shown in
+  Settings — if voice feels sluggish, one tap switches modes). The app's tools are served to the
+  CLI via a **local MCP shim** (loopback HTTP, per-run token) — chosen over prompt-level
+  tool-intents because the CLI keeps its native agentic loop and every tool (present and future)
+  works identically in both modes. The CLI sandbox is file-configured
+  (`CLAUDE.md` persona, `.mcp.json`, `.claude/settings.local.json` allowing `mcp__jarvis__*` +
+  read-only built-ins, denying Bash/file-writes/web), and `ANTHROPIC_API_KEY` is stripped from
+  its environment so it can never silently bill credits.
+- **API mode:** the direct Anthropic path (`claude-sonnet-4-6`) — used when selected, and as
+  automatic fallback when the CLI is missing or errors (visible status note). Subscription limit
+  exhaustion raises a distinct notice with a one-tap switch.
 
-## First run
+## JARVIS-OS — the second brain
 
-1. Launch JARVIS — the arc reactor appears in the system tray.
-2. Left-click the tray icon (or **Ctrl+Shift+J**) to open the window.
-3. Gear icon → paste your **Anthropic API key** → SAVE. The key goes into the
-   **Windows Credential Manager** (service "JARVIS") — never a file, never the repo.
-4. Type a message (voice arrives in Stage 2).
-
-Tray right-click menu: **Open / Mute / Start with Windows / Quit**. Closing the window hides
-to tray; the app keeps running.
-
-## Keyboard
-
-| Key | Action |
-| --- | --- |
-| `Ctrl+Shift+J` (global) | Summon window + start listening (push-to-talk) |
-| `Esc` | Hide window |
+A plain-markdown, git-versioned vault at `~/JARVIS-OS` (skeleton adapted from
+[AIS-OS by Nate Herk](https://github.com/nateherkai/AIS-OS), MIT — attribution kept in the vault),
+organized into **work / business / personal**. In CLI mode the vault *is* the brain's working
+directory, so the `CLAUDE.md` routing tree loads natively; in API mode the relevant domain's
+files are injected into the system prompt (domain pin in the titlebar, else keyword routing).
+Write-back happens only through tools — `log_decision`, `save_note`, `update_context` — every
+change auto-committed to the vault's git, and **never silently**: while "ask before writing" is
+on, unconfirmed writes are mechanically refused. The Mind Map tab renders the vault as a
+collapsible tidy-tree (pan/zoom/search, edit-in-place, live node pulses on writes) with the
+weekly Four-Cs audit as an overlay scorecard. JARVIS runs `/audit` quietly every Sunday evening
+and folds a one-line health note into Monday's briefing.
 
 ## Voice
 
-**Speaking (TTS):** webview `speechSynthesis` — WebView2 exposes the installed Windows
-voices. JARVIS prefers a UK male voice (Ryan/George/Thomas) and falls back down the en-GB →
-en chain. Rate and pitch live in Settings; Mute (tray or 🔊 button) silences him instantly.
-Every spoken reply also renders as text.
+**Speaking:** dual-engine. The WinRT `Windows.Media.SpeechSynthesis` path (Rust) sees every
+voice pack installed via **Windows Settings → Time & Language → Speech**, *including the
+Windows 11 natural neural voices* — WebView2's `speechSynthesis` only ever exposes legacy SAPI
+voices (the Edge "Online (Natural)" voices are browser-exclusive; that's why the Rust path
+exists and is preferred). Preference order: Ryan (Natural) en-GB → any en-GB Natural male → any
+Natural → legacy en-GB male → en. The voice picker flags Natural voices; if none is installed, a
+hint deep-links to `ms-settings:speech`. Delivery: URLs/ids are never read aloud ("link on
+screen"), big numbers are rounded in speech, a 240 ms pause follows "sir", and JARVIS never
+talks over push-to-talk.
 
-**Listening (STT):** push-to-talk via **Ctrl+Shift+J** — hold and speak, release (or pause)
-to send. Implementation: the WinRT `Windows.Media.SpeechRecognition` engine, called from
-Rust. Why not the alternatives the spec offered:
+**Listening:** push-to-talk (hold **Ctrl+Shift+J**) via the WinRT recognizer — WebView2 lacks
+Web Speech recognition; whisper.cpp would add a build chain + ~75 MB model for no gain. Mic is
+open only while the waveform strip shows.
 
-- *Webview SpeechRecognition*: WebView2 does **not** implement the Web Speech API's
-  recognition half (Edge-only). The UI still probes for it at runtime and would prefer it.
-- *whisper.cpp*: would add a cmake/clang build chain and a ~75MB bundled model for accuracy
-  the OS engine already provides locally, with worse latency.
+## Setup
 
-The WinRT recognizer only opens the microphone during capture (the waveform strip +
-"● LISTENING" tag make that visible) and auto-stops on silence.
-
-**Troubleshooting:** if JARVIS says speech recognition is disabled, enable
-**Settings → Privacy & security → Speech → Online speech recognition** in Windows.
-
-## Tools
-
-JARVIS answers with function-calling — every tool executes locally in Rust; the model only
-supplies arguments:
-
-| Tool | What it does |
+| Requirement | Install |
 | --- | --- |
-| `portfolio_stats` | Today/week summaries, top pages, live counts from the analytics Worker (per site or portfolio-wide) |
-| `weather` | Current + today/tomorrow forecast via Open-Meteo (no key; city in Settings, default Pune) |
-| `set_timer` / `list_timers` | Local timers/reminders — native Windows notification + spoken alert |
-| `system` | Open a URL in the default browser; current date/time (IST) |
-| `remember` / `recall` | Persistent notes store (SQLite in `%APPDATA%\com.sirbob.jarvis`) |
-| `calendar` | Google Calendar: today / next event / this week / create event |
+| Rust (MSVC) + VS Build Tools (C++) | `winget install Rustlang.Rustup Microsoft.VisualStudio.2022.BuildTools` |
+| Node.js ≥ 20 | for the Tauri CLI (`npm install`) |
+| Claude Code CLI (optional, for subscription brain) | `npm i -g @anthropic-ai/claude-code` → `claude login` |
+| git (optional, for vault versioning + kit clone) | `winget install Git.Git` |
 
-Try: *"How's pdfedit doing today?"*, *"Weather tomorrow?"*, *"Remind me in 20 minutes to stretch"*,
-*"Remember that the Ezoic payout lands on the 15th"*, *"What did I ask you to remember?"*
+```sh
+npm install
+npm run dev      # development app
+npm run build    # → src-tauri/target/release/bundle/msi/JARVIS_0.2.0_x64_en-US.msi
+```
 
-### Cloudflare Access service token (portfolio_stats)
+The `.msi` is unsigned — SmartScreen will ask once (*More info → Run anyway*).
 
-The analytics Worker sits behind Cloudflare Access, so JARVIS authenticates with a
-**service token** instead of a browser login:
+**First run:** tray reactor appears → Ctrl+Shift+J → Settings tab:
+1. **Brain** — install/login Claude Code for subscription mode, and/or paste an Anthropic key.
+2. **Portfolio** — Cloudflare Access service token pair (Zero Trust → Service Auth; add a
+   Service-Auth policy on the analytics app). Powers the board card + the entire HUD tab.
+3. **Personal Google** — OAuth Desktop client ID/secret → *Connect Calendar*.
+4. **Work accounts** — *Connect Work Google* (pick the work account; `gmail.readonly` +
+   `calendar.readonly` only) and a Slack user token (`xoxp-…`, scopes: `search:read`,
+   `channels:history`, `groups:history`, `im:history`, `mpim:history`, `users:read`).
+5. **Mind Map tab** → *Initialize the vault* → say "run onboarding" for the 7-question interview.
 
-1. [Zero Trust](https://one.dash.cloudflare.com) → **Access → Service auth → Service Tokens →
-   Create Service Token** — name it `jarvis-desktop`, duration to taste. Copy the
-   **Client ID** and **Client Secret** (the secret is shown once).
-2. **Access → Applications → Portfolio Analytics HUD → Policies → Add a policy**:
-   name `JARVIS desktop`, action **Service Auth**, include → **Service Token** →
-   `jarvis-desktop`.
-3. JARVIS Settings (gear) → paste both values → SAVE. They live in the Windows Credential
-   Manager and ride along as `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers.
-
-### Google Calendar setup
-
-1. [Google Cloud Console](https://console.cloud.google.com) → create (or pick) a project →
-   **APIs & Services → Library** → enable **Google Calendar API**.
-2. **APIs & Services → OAuth consent screen**: External, fill the app name (`JARVIS`),
-   add your Google account under **Test users** (no verification needed for personal use).
-3. **APIs & Services → Credentials → Create Credentials → OAuth client ID** →
-   application type **Desktop app** → copy the **Client ID** and **Client Secret**.
-4. JARVIS Settings → paste both → **CONNECT CALENDAR**. Your browser opens Google's consent
-   page; approve, and JARVIS catches the redirect on `127.0.0.1:17821`. Tokens (with offline
-   refresh) go into the Windows Credential Manager and renew silently.
-
-Try: *"What's on my calendar today?"*, *"When's my next meeting?"*,
-*"Put 'call the accountant' on Friday at 3pm for 45 minutes."*
+Every credential lives in the **Windows Credential Manager** (service "JARVIS") — never a file.
 
 ## Architecture
 
 ```
-ui/                 frontend (vanilla JS, no bundler) — chat view, settings, voice (Stage 2)
+ui/                      vanilla JS, no bundler
+  js/app.js              tab router, conversation drawer, domain pin, events
+  js/board.js            Command glance board (cache-first, visibility-paused polling)
+  js/hud.js              native HUD (overview/site/live/revenue, DPR-aware charts)
+  js/work.js             work tab (today/inbox/slack/todos)
+  js/mindmap.js          vault tidy-tree, side panel, audit overlay
+  js/settings.js         credentials, brain mode, voice picker, connection statuses
+  js/voice.js            dual-engine TTS + push-to-talk + delivery polish
+  mini.html              always-on-top mini reactor window
 src-tauri/src/
-  lib.rs            shell: tray, hotkey, single-instance, autostart, mute state
-  claude.rs         Anthropic streaming (SSE → Tauri events), session memory, tools (Stage 3)
-  secrets.rs        Windows Credential Manager via keyring (allowlisted keys)
+  lib.rs                 tray, hotkey, windows, single-instance
+  brain.rs               CLI/API routing, warm session, latency, fallback
+  mcp.rs                 local MCP shim (the CLI's bridge to the app tools)
+  claude.rs              Anthropic streaming + session + vault context injection
+  tools.rs               the model's toolbox (portfolio, weather, timers, system,
+                         work_*, navigate_app, hud_data, vault tools, notes)
+  work.rs / google_auth.rs / calendar.rs    read-only work stage + OAuth
+  vault.rs (+vault_templates/)              JARVIS-OS bootstrap, git, write-back
+  hud.rs / todos.rs / proactive.rs          worker proxy, todo store, briefing+audit loops
+  tts.rs / stt.rs                           WinRT speech synthesis / recognition
+  db.rs / secrets.rs                        SQLite (notes/kv/todos), Credential Manager
 ```
 
-Model: `claude-sonnet-4-6` (the spec's `claude-sonnet-4-20250514` is deprecated and retires
-2026-06-15, so the current Sonnet is used instead).
+## Design system
 
-## Stages (all complete)
-
-1. ✅ Tray shell, frameless HUD window, global hotkey, single-instance, autostart, streaming text chat
-2. ✅ Voice: push-to-talk STT (WinRT) + TTS (UK male preferred), waveform, mute
-3. ✅ Tools: portfolio_stats (Cloudflare Access service token), weather (Open-Meteo), timers/reminders, system, remember/recall (SQLite)
-4. ✅ Morning briefing on first wake (06:00–12:00 IST window) + 30-min anomaly polling with native notifications
-5. ✅ Google Calendar (OAuth desktop loopback) + `.msi` installer
+8 px spacing grid · two type roles per card (11 px tracked uppercase label / tabular-mono value)
+· 14 px card radius · hairline borders `rgba(78,216,255,.18)` · the cyan glow appears **only** on
+live/active elements (reactor, live counters, listening waveform, active path) · amber strictly
+for anomalies · 150–200 ms ease-out motion, stagger-ins, number tick-ups · DPR-aware canvas/SVG
+everywhere · zero idle animation beyond the reactor pulse; everything stops when minimized.

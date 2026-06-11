@@ -441,14 +441,13 @@ pub fn context_for(app: &AppHandle, message: &str) -> String {
 
     let db = app.state::<Db>();
     let pin = db::kv_get(&db, "domain_pin").unwrap_or_else(|| "all".into());
-    let domains: Vec<&str> = if DOMAINS.contains(&pin.as_str()) {
-        vec![Box::leak(pin.into_boxed_str()) as &str]
+    let domains: Vec<String> = if DOMAINS.contains(&pin.as_str()) {
+        vec![pin]
     } else {
-        let c = classify(message);
-        if c.is_empty() { vec![] } else { c }
+        classify(message).into_iter().map(String::from).collect()
     };
 
-    for d in domains {
+    for d in &domains {
         // Most recently touched files carry the freshest context.
         let mut files: Vec<PathBuf> = std::fs::read_dir(dir.join(d))
             .map(|r| r.filter_map(Result::ok).map(|e| e.path()).filter(|p| p.extension().map(|x| x == "md").unwrap_or(false)).collect())

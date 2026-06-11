@@ -296,6 +296,7 @@ document.addEventListener('tab-shown', ({ detail }) => {
 
 // The Command board's strip asks for a fill when work creds exist.
 document.addEventListener('work-strip-refresh', async () => {
+  if (!root.querySelector('.work-grid')) skeleton(); // paint targets must exist
   try { paintInbox(await inv('work_email_overview')); } catch { /* strip stays nudge */ }
   try { paintSlack(await inv('work_slack_overview')); } catch { /* partial is fine */ }
 });
