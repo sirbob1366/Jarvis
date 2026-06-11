@@ -14,7 +14,6 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 
-use crate::claude;
 use crate::db::{self, Db};
 use crate::secrets;
 use crate::tools;
@@ -73,24 +72,14 @@ pub fn maybe_brief(app: &AppHandle) {
 
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let Ok(Some(api_key)) = secrets::get(secrets::ANTHROPIC_API_KEY) else { return };
-
         // The board stagger-paints in sync with the spoken briefing.
         let _ = app.emit("briefing-start", ());
 
-        let history = vec![json!({ "role": "user", "content": briefing_prompt() })];
-        match claude::run_exchange(&app, &api_key, history).await {
-            Ok((text, _)) => {
-                // Streamed into the chat already; jarvis-done triggers TTS and
-                // appends the exchange to the visible conversation.
+        // Routed through the brain (subscription CLI first, API fallback);
+        // the session keeps the exchange so follow-up questions have context.
+        match crate::brain::converse(&app, &briefing_prompt()).await {
+            Ok(text) => {
                 let _ = app.emit("jarvis-done", json!({ "text": text }));
-                // Give follow-up questions context.
-                let session = app.state::<claude::Session>();
-                session
-                    .messages
-                    .lock()
-                    .unwrap()
-                    .push(json!({ "role": "assistant", "content": text }));
             }
             Err(e) => {
                 let _ = app.emit("jarvis-error", json!({ "error": format!("Briefing failed: {e}") }));

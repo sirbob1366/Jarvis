@@ -13,7 +13,7 @@ use futures_util::StreamExt;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::secrets;
 use crate::tools;
@@ -248,23 +248,14 @@ pub async fn run_exchange(app: &AppHandle, api_key: &str, history: Vec<Value>) -
     Err("Tool loop exceeded its round limit, sir — something is misbehaving.".into())
 }
 
-#[tauri::command]
-pub async fn ask_jarvis(
-    app: AppHandle,
-    session: State<'_, Session>,
-    message: String,
-) -> Result<(), String> {
-    let message = message.trim().to_string();
-    if message.is_empty() {
-        return Ok(());
-    }
-
+/// One API-mode turn against the rolling session (the brain router's
+/// fallback path and the explicit API mode).
+pub async fn api_converse(app: &AppHandle, message: &str) -> Result<String, String> {
     let Some(api_key) = secrets::get(secrets::ANTHROPIC_API_KEY)? else {
-        let err = "No Anthropic API key configured, sir. Open Settings (gear icon) and add one.";
-        let _ = app.emit("jarvis-error", ErrorPayload { error: err.into() });
-        return Ok(());
+        return Err("No Anthropic API key configured, sir. Open Settings and add one (or install Claude Code for subscription mode).".into());
     };
 
+    let session = app.state::<Session>();
     let history = {
         let mut messages = session.messages.lock().unwrap();
         messages.push(json!({ "role": "user", "content": message }));
@@ -272,20 +263,44 @@ pub async fn ask_jarvis(
         messages.clone()
     };
 
-    match run_exchange(&app, &api_key, history).await {
+    match run_exchange(app, &api_key, history).await {
         Ok((full, new_history)) => {
             let mut messages = session.messages.lock().unwrap();
             *messages = new_history;
             trim_history(&mut messages);
-            drop(messages);
-            let _ = app.emit("jarvis-done", DeltaPayload { text: &full });
+            Ok(full)
         }
         Err(err) => {
             let mut messages = session.messages.lock().unwrap();
             if messages.last().map(|m| m["role"] == "user").unwrap_or(false) {
                 messages.pop();
             }
-            drop(messages);
+            Err(err)
+        }
+    }
+}
+
+/// CLI-mode turns mirror into the API session so a mode switch keeps context.
+pub fn mirror_into_session(app: &AppHandle, user: &str, assistant: &str) {
+    let session = app.state::<Session>();
+    let mut messages = session.messages.lock().unwrap();
+    messages.push(json!({ "role": "user", "content": user }));
+    messages.push(json!({ "role": "assistant", "content": assistant }));
+    trim_history(&mut messages);
+}
+
+#[tauri::command]
+pub async fn ask_jarvis(app: AppHandle, message: String) -> Result<(), String> {
+    let message = message.trim().to_string();
+    if message.is_empty() {
+        return Ok(());
+    }
+
+    match crate::brain::converse(&app, &message).await {
+        Ok(full) => {
+            let _ = app.emit("jarvis-done", DeltaPayload { text: &full });
+        }
+        Err(err) => {
             let _ = app.emit("jarvis-error", ErrorPayload { error: err });
         }
     }
@@ -293,7 +308,8 @@ pub async fn ask_jarvis(
 }
 
 #[tauri::command]
-pub fn clear_session(session: State<'_, Session>) -> Result<(), String> {
+pub async fn clear_session(app: AppHandle, session: State<'_, Session>) -> Result<(), String> {
     session.messages.lock().unwrap().clear();
+    crate::brain::reset(&app).await;
     Ok(())
 }

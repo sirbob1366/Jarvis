@@ -31,7 +31,14 @@ function render() {
 
   <div class="card settings-card">
     <h3>Brain</h3>
-    ${secretField('set-api-key', 'Anthropic API key', 'sk-ant-…', 'api-key-state')}
+    <label>Mode</label>
+    <div class="seg" id="brain-mode">
+      <button data-mode="cli">Claude Code (subscription)</button>
+      <button data-mode="api">Anthropic API</button>
+    </div>
+    <span class="hint" id="brain-state">checking…</span>
+    <span class="hint" id="brain-latency"></span>
+    ${secretField('set-api-key', 'Anthropic API key (API mode / fallback)', 'sk-ant-…', 'api-key-state')}
     <span class="hint">Stored in Windows Credential Manager — never a file.</span>
   </div>
 
@@ -104,6 +111,7 @@ function render() {
 // ---------- connection status ----------
 
 const CONNECTIONS = [
+  { key: 'brain', name: 'Claude Code CLI', check: checkBrain },
   { key: 'anthropic', name: 'Anthropic API', check: checkAnthropic },
   { key: 'cf', name: 'Analytics Worker', check: checkWorker },
   { key: 'gcal', name: 'Google Calendar', check: checkCalendar },
@@ -130,6 +138,31 @@ async function checkSlack() {
     return { state: 'ok', note: 'reachable' };
   } catch (e) {
     return { state: 'fail', note: String(e) };
+  }
+}
+
+async function checkBrain() {
+  const s = await inv('brain_status');
+  if (!s.cli_available) return { state: 'unset', note: 'not installed — API mode will be used' };
+  return { state: 'ok', note: `${s.cli_version || 'available'} · brain in ${s.mode} mode` };
+}
+
+export async function refreshBrain() {
+  const seg = document.getElementById('brain-mode');
+  if (!seg) return;
+  try {
+    const s = await inv('brain_status');
+    seg.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === s.mode));
+    const state = document.getElementById('brain-state');
+    state.textContent = s.cli_available
+      ? `Claude Code ${s.cli_version} · sandbox: ${s.sandbox}`
+      : 'Claude Code CLI not found — conversational turns use the API.';
+    const lat = [];
+    if (s.cli_first_ms) lat.push(`CLI: first word ${s.cli_first_ms} ms, turn ${s.cli_total_ms} ms`);
+    if (s.api_total_ms) lat.push(`API: turn ${s.api_total_ms} ms`);
+    document.getElementById('brain-latency').textContent = lat.length ? `Last measured — ${lat.join(' · ')}` : '';
+  } catch (e) {
+    document.getElementById('brain-state').textContent = String(e);
   }
 }
 
@@ -218,6 +251,14 @@ document.addEventListener('voices-ready', refreshVoices);
 function wire() {
   document.getElementById('conn-recheck').addEventListener('click', refreshConnections);
 
+  document.getElementById('brain-mode').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-mode]');
+    if (!b) return;
+    await inv('brain_set_mode', { mode: b.dataset.mode });
+    refreshBrain();
+    refreshConnections();
+  });
+
   document.getElementById('set-rate').addEventListener('input', (e) => {
     document.getElementById('rate-label').textContent = `${Number(e.target.value).toFixed(2)}×`;
   });
@@ -299,6 +340,7 @@ async function saveSecret(inputId, key) {
 }
 
 render();
+refreshBrain();
 document.addEventListener('tab-shown', ({ detail }) => {
-  if (detail.tab === 'settings') { refreshState(); refreshConnections(); }
+  if (detail.tab === 'settings') { refreshState(); refreshConnections(); refreshBrain(); }
 });

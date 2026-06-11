@@ -364,15 +364,12 @@ pub async fn work_google_connect(app: AppHandle) -> Result<String, String> {
 /// slack; suggestions land in the todos store as 'suggested'.
 #[tauri::command]
 pub async fn work_scan(app: AppHandle) -> Result<String, String> {
-    let Some(api_key) = secrets::get(secrets::ANTHROPIC_API_KEY)? else {
-        return Err("No Anthropic API key configured, sir.".into());
-    };
     let prompt = "Scan my work inbox and Slack for action items: call work_email \
         {action:'extract_action_items'} and work_slack {action:'extract_action_items'}, judge which \
         candidates are genuine tasks for me, and file each via work_todos {action:'suggest'}. \
         Then reply with a one-line spoken summary of what you filed.";
-    let history = vec![json!({ "role": "user", "content": prompt })];
-    let (text, _) = crate::claude::run_exchange(&app, &api_key, history).await?;
+    let text = crate::brain::converse(&app, prompt).await?;
     let _ = tauri::Emitter::emit(&app, "todos-changed", ());
+    let _ = tauri::Emitter::emit(&app, "jarvis-done", json!({ "text": text }));
     Ok(text)
 }

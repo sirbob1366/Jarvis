@@ -213,6 +213,35 @@ listen('navigate', ({ payload }) => {
   navigate(payload.tab, { view: payload.view || null, site: payload.site || null });
 });
 
+// ---------- brain routing surface ----------
+
+const brainStatusEl = document.getElementById('titlebar-status');
+
+listen('brain-status', ({ payload }) => {
+  if (payload.fallback && payload.note) {
+    brainStatusEl.textContent = 'brain: API fallback';
+    openDrawer(false);
+    addMsg('jarvis', payload.note, 'error');
+  } else {
+    brainStatusEl.textContent = payload.active === 'cli' ? '' : 'brain: API';
+  }
+});
+
+listen('brain-limit', ({ payload }) => {
+  openDrawer(false);
+  const el = addMsg('jarvis',
+    'My Claude Code subscription allowance appears exhausted for now, sir. I can switch to the API (uses credits) with one tap.', 'error');
+  const btn = document.createElement('button');
+  btn.className = 'link-btn';
+  btn.textContent = 'Switch to API mode';
+  btn.addEventListener('click', async () => {
+    await invoke('brain_set_mode', { mode: 'api' });
+    btn.replaceWith(Object.assign(document.createElement('span'), { textContent: ' switched ✓' }));
+  });
+  el.appendChild(btn);
+  console.warn('brain-limit:', payload?.error);
+});
+
 // ---------- composers ----------
 
 document.getElementById('composer').addEventListener('submit', (e) => {

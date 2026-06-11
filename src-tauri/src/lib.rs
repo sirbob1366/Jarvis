@@ -1,11 +1,13 @@
 //! JARVIS Desktop — Tauri shell: system tray, frameless HUD window,
 //! Ctrl+Shift+J global hotkey, single-instance lock, autostart.
 
+mod brain;
 mod calendar;
 mod claude;
 mod db;
 mod google_auth;
 mod hud;
+mod mcp;
 mod proactive;
 mod secrets;
 mod stt;
@@ -116,6 +118,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .manage(claude::Session::default())
+        .manage(brain::Brain::default())
         .manage(stt::SttState::default())
         .manage(tools::Timers::default())
         .manage(proactive::AlertLog::default())
@@ -150,6 +153,8 @@ pub fn run() {
             tts::tts_voices,
             tts::tts_synthesize,
             tts::open_voice_settings,
+            brain::brain_status,
+            brain::brain_set_mode,
             toggle_mute,
             is_muted,
             hide_window,
@@ -161,6 +166,10 @@ pub fn run() {
             // ---- local SQLite (notes + settings) ----
             let database = db::init(app.handle())?;
             app.manage(database);
+
+            // ---- MCP shim: the CLI brain's bridge to the app's tools ----
+            let mcp_info = mcp::start(app.handle());
+            *app.state::<brain::Brain>().mcp_url.lock().unwrap() = mcp_info.url;
 
             // ---- proactive loops: morning briefing + anomaly watch ----
             proactive::start(app.handle());
