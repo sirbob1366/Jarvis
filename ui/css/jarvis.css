@@ -1,0 +1,200 @@
+/* JARVIS Desktop — same HUD glass language as the analytics dashboard. */
+
+:root {
+  --bg: #05080d;
+  --glow: #4fd8ff;
+  --line: #1ec8ff;
+  --line40: rgba(30, 200, 255, 0.4);
+  --line15: rgba(30, 200, 255, 0.15);
+  --amber: #ffb84d;
+  --red: #ff5252;
+  --panel: rgba(10, 26, 40, 0.55);
+  --text: #c9e9f7;
+  --dim: #5d8aa3;
+  --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line40);
+  box-shadow: inset 0 0 40px rgba(30, 200, 255, 0.05);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 90% 50% at 50% 0%, rgba(30, 120, 180, 0.12), transparent 70%);
+  pointer-events: none;
+}
+
+/* ---------- header ---------- */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line15);
+  cursor: grab;
+}
+
+.title { font: 700 14px var(--mono); color: var(--glow); letter-spacing: 0.22em; text-shadow: 0 0 10px rgba(79, 216, 255, 0.6); flex: 1; }
+.title small { display: block; font: 500 8px var(--mono); letter-spacing: 0.3em; color: var(--dim); text-transform: uppercase; }
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--line15);
+  border-radius: 3px;
+  color: var(--dim);
+  width: 28px; height: 28px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.icon-btn:hover { color: var(--glow); border-color: var(--line40); }
+.icon-btn.muted { color: var(--red); }
+
+/* ---------- reactor ---------- */
+
+.reactor { position: relative; width: 34px; height: 34px; flex: 0 0 auto; }
+.reactor .ring, .reactor .core { position: absolute; inset: 0; border-radius: 50%; }
+.reactor .r1 { border: 1.5px solid rgba(79, 216, 255, 0.55); border-top-color: transparent; animation: spin 5s linear infinite; }
+.reactor .r2 { inset: 5px; border: 1.5px dashed rgba(30, 200, 255, 0.4); animation: spin 9s linear infinite reverse; }
+.reactor .core {
+  inset: 11px;
+  background: radial-gradient(circle, #eafcff 0%, #4fd8ff 55%, rgba(30, 200, 255, 0) 100%);
+  animation: pulse 2.6s ease-in-out infinite;
+}
+.reactor.thinking .core { animation-duration: 0.7s; }
+.reactor.thinking .r1 { animation-duration: 1.2s; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+/* ---------- chat ---------- */
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line40) transparent;
+}
+
+.msg {
+  max-width: 86%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line15);
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  white-space: pre-wrap;
+  user-select: text;
+  animation: rise 0.18s ease-out;
+}
+.msg.user { align-self: flex-end; border-color: rgba(93, 138, 163, 0.4); color: #dceaf2; }
+.msg.jarvis { align-self: flex-start; border-color: var(--line40); box-shadow: 0 0 14px rgba(30, 200, 255, 0.06); }
+.msg.jarvis.error { border-color: rgba(255, 82, 82, 0.5); color: var(--red); }
+.msg .who { display: block; font: 600 9px var(--mono); letter-spacing: 0.2em; color: var(--dim); margin-bottom: 3px; }
+.msg.jarvis .who { color: var(--glow); }
+@keyframes rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+.hint-empty { margin: auto; text-align: center; color: var(--dim); font: 11px var(--mono); letter-spacing: 0.18em; }
+
+/* ---------- waveform strip ---------- */
+
+.wave {
+  position: relative;
+  border-top: 1px solid var(--line40);
+  background: rgba(10, 26, 40, 0.8);
+}
+.wave canvas { display: block; width: 100%; height: 36px; }
+.listening-tag {
+  position: absolute; top: 4px; right: 10px;
+  font: 600 9px var(--mono);
+  letter-spacing: 0.2em;
+  color: var(--red);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ---------- composer ---------- */
+
+footer { border-top: 1px solid var(--line15); padding: 10px 12px; }
+#composer { display: flex; gap: 8px; }
+#input {
+  flex: 1;
+  background: rgba(10, 26, 40, 0.8);
+  border: 1px solid var(--line40);
+  border-radius: 4px;
+  color: var(--text);
+  font: 13px var(--mono);
+  padding: 9px 11px;
+  outline: none;
+}
+#input:focus { box-shadow: 0 0 10px rgba(30, 200, 255, 0.25); }
+.send-btn {
+  background: rgba(30, 200, 255, 0.1);
+  border: 1px solid var(--line40);
+  border-radius: 4px;
+  color: var(--glow);
+  width: 40px;
+  cursor: pointer;
+}
+.send-btn:hover { background: rgba(30, 200, 255, 0.22); }
+
+/* ---------- settings dialog ---------- */
+
+dialog {
+  background: #081420;
+  color: var(--text);
+  border: 1px solid var(--line40);
+  border-radius: 6px;
+  box-shadow: 0 0 40px rgba(30, 200, 255, 0.15);
+  width: 380px;
+  padding: 18px;
+}
+dialog::backdrop { background: rgba(5, 8, 13, 0.75); }
+dialog h2 { margin: 0 0 14px; font: 600 12px var(--mono); letter-spacing: 0.25em; color: var(--glow); }
+dialog label { display: block; margin-bottom: 12px; font: 600 10px var(--mono); letter-spacing: 0.15em; color: var(--dim); text-transform: uppercase; }
+dialog input[type='password'], dialog input[type='text'] {
+  display: block; width: 100%; margin-top: 5px;
+  background: rgba(10, 26, 40, 0.8);
+  border: 1px solid var(--line40);
+  border-radius: 3px;
+  color: var(--text);
+  font: 12px var(--mono);
+  padding: 8px;
+}
+dialog input[type='range'] { width: 100%; accent-color: var(--glow); }
+dialog .hint { display: block; margin-top: 4px; font: 10px var(--mono); color: var(--glow); text-transform: none; letter-spacing: 0; }
+dialog menu { display: flex; gap: 8px; justify-content: flex-end; padding: 0; margin: 14px 0 0; }
+dialog menu button {
+  background: rgba(30, 200, 255, 0.1);
+  border: 1px solid var(--line40);
+  border-radius: 3px;
+  color: var(--glow);
+  font: 600 10px var(--mono);
+  letter-spacing: 0.15em;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; }
+}

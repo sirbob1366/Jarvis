@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- Dev-time source for the app icon: headless Chrome screenshots this at
+     1024x1024, then `npm run icon` generates every platform size. -->
+<html>
+<head><style>
+  html, body { margin: 0; width: 1024px; height: 1024px; background: transparent; }
+</style></head>
+<body>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%">
+      <stop offset="0%" stop-color="#0a1a28"/>
+      <stop offset="100%" stop-color="#05080d"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="50%">
+      <stop offset="0%" stop-color="#eafcff"/>
+      <stop offset="35%" stop-color="#7fe4ff"/>
+      <stop offset="70%" stop-color="#1ec8ff"/>
+      <stop offset="100%" stop-color="rgba(30,200,255,0)"/>
+    </radialGradient>
+  </defs>
+  <circle cx="512" cy="512" r="500" fill="url(#bg)" stroke="#1ec8ff" stroke-width="10" stroke-opacity="0.55"/>
+  <circle cx="512" cy="512" r="420" fill="none" stroke="#1ec8ff" stroke-opacity="0.5" stroke-width="14"
+          stroke-dasharray="180 40 60 40"/>
+  <circle cx="512" cy="512" r="340" fill="none" stroke="#4fd8ff" stroke-opacity="0.65" stroke-width="26"
+          stroke-dasharray="12 58"/>
+  <g stroke="#7fe4ff" stroke-width="16" stroke-opacity="0.85">
+    <line x1="512" y1="512" x2="512" y2="222"/>
+    <line x1="512" y1="512" x2="763" y2="657"/>
+    <line x1="512" y1="512" x2="261" y2="657"/>
+  </g>
+  <circle cx="512" cy="512" r="230" fill="url(#core)"/>
+  <circle cx="512" cy="512" r="110" fill="#eafcff"/>
+</svg>
+</body>
+</html>

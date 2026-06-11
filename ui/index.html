@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JARVIS</title>
+  <link rel="stylesheet" href="css/jarvis.css" />
+</head>
+<body>
+  <header data-tauri-drag-region>
+    <div class="reactor" id="reactor" data-tauri-drag-region>
+      <span class="ring r1"></span><span class="ring r2"></span><span class="core"></span>
+    </div>
+    <div class="title" data-tauri-drag-region>J.A.R.V.I.S.<small>desktop uplink</small></div>
+    <button class="icon-btn" id="mute-btn" title="Mute voice">🔊</button>
+    <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
+    <button class="icon-btn" id="hide-btn" title="Hide">—</button>
+  </header>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <div class="wave" id="wave" hidden>
+    <canvas id="wave-canvas" width="480" height="36"></canvas>
+    <span class="listening-tag">● LISTENING</span>
+  </div>
+
+  <footer>
+    <form id="composer">
+      <input id="input" type="text" placeholder="Type to JARVIS… (Ctrl+Shift+J to speak)" autocomplete="off" />
+      <button type="submit" class="send-btn" title="Send">➤</button>
+    </form>
+  </footer>
+
+  <dialog id="settings">
+    <h2>SETTINGS</h2>
+    <label>Anthropic API key
+      <input id="set-api-key" type="password" placeholder="sk-ant-…  (stored in Windows Credential Manager)" />
+      <span class="hint" id="api-key-state"></span>
+    </label>
+    <label>Voice rate <input id="set-rate" type="range" min="0.6" max="1.6" step="0.05" value="1.02" /></label>
+    <label>Voice pitch <input id="set-pitch" type="range" min="0.5" max="1.5" step="0.05" value="0.85" /></label>
+    <label>City (weather) <input id="set-city" type="text" placeholder="Pune" /></label>
+    <menu>
+      <button id="settings-save" value="default">SAVE</button>
+      <button value="cancel" formmethod="dialog">CLOSE</button>
+    </menu>
+  </dialog>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
