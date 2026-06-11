@@ -48,6 +48,28 @@ to tray; the app keeps running.
 | `Ctrl+Shift+J` (global) | Summon window + start listening (push-to-talk) |
 | `Esc` | Hide window |
 
+## Voice
+
+**Speaking (TTS):** webview `speechSynthesis` — WebView2 exposes the installed Windows
+voices. JARVIS prefers a UK male voice (Ryan/George/Thomas) and falls back down the en-GB →
+en chain. Rate and pitch live in Settings; Mute (tray or 🔊 button) silences him instantly.
+Every spoken reply also renders as text.
+
+**Listening (STT):** push-to-talk via **Ctrl+Shift+J** — hold and speak, release (or pause)
+to send. Implementation: the WinRT `Windows.Media.SpeechRecognition` engine, called from
+Rust. Why not the alternatives the spec offered:
+
+- *Webview SpeechRecognition*: WebView2 does **not** implement the Web Speech API's
+  recognition half (Edge-only). The UI still probes for it at runtime and would prefer it.
+- *whisper.cpp*: would add a cmake/clang build chain and a ~75MB bundled model for accuracy
+  the OS engine already provides locally, with worse latency.
+
+The WinRT recognizer only opens the microphone during capture (the waveform strip +
+"● LISTENING" tag make that visible) and auto-stops on silence.
+
+**Troubleshooting:** if JARVIS says speech recognition is disabled, enable
+**Settings → Privacy & security → Speech → Online speech recognition** in Windows.
+
 ## Architecture
 
 ```

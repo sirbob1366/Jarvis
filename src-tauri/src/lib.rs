@@ -3,6 +3,7 @@
 
 mod claude;
 mod secrets;
+mod stt;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
@@ -57,6 +58,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(claude::Session::default())
+        .manage(stt::SttState::default())
         .manage(Flags {
             muted: AtomicBool::new(false),
         })
@@ -65,6 +67,8 @@ pub fn run() {
             claude::clear_session,
             secrets::secret_set,
             secrets::secret_exists,
+            stt::stt_listen,
+            stt::stt_stop,
             toggle_mute,
             is_muted,
             hide_window,

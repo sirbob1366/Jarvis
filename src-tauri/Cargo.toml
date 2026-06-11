@@ -22,6 +22,7 @@ keyring = { version = "3", features = ["windows-native"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"] }
 futures-util = "0.3"
+windows = { version = "0.58", features = ["Media_SpeechRecognition", "Foundation", "Foundation_Collections"] }
 
 [profile.release]
 codegen-units = 1
