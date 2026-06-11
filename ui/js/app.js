@@ -68,7 +68,9 @@ listen('jarvis-delta', ({ payload }) => {
 
 listen('jarvis-done', async ({ payload }) => {
   setThinking(false);
+  toolNote(null);
   if (!streamingEl) streamingEl = addMsg('jarvis', payload.text);
+  else streamingEl.querySelector('.body').textContent = payload.text;
   streamingEl = null;
   // Stage 2: speak the reply (voice.js hooks this event too).
   document.dispatchEvent(new CustomEvent('jarvis-said', { detail: payload.text }));
@@ -77,7 +79,47 @@ listen('jarvis-done', async ({ payload }) => {
 listen('jarvis-error', ({ payload }) => {
   setThinking(false);
   streamingEl = null;
+  toolNote(null);
   addMsg('jarvis', payload.error, 'error');
+});
+
+// ---------- tool activity indicator ----------
+
+const TOOL_LABELS = {
+  portfolio_stats: 'consulting portfolio sensors',
+  weather: 'checking the skies',
+  set_timer: 'arming a timer',
+  list_timers: 'reviewing timers',
+  system: 'reaching into the system',
+  remember: 'committing to memory',
+  recall: 'searching my notes',
+  calendar: 'consulting the calendar',
+};
+
+let toolEl = null;
+function toolNote(name) {
+  if (!name) {
+    toolEl?.remove();
+    toolEl = null;
+    return;
+  }
+  if (!toolEl) {
+    toolEl = document.createElement('div');
+    toolEl.className = 'hint-empty';
+    toolEl.style.margin = '0';
+    chat.appendChild(toolEl);
+  }
+  toolEl.textContent = `· ${TOOL_LABELS[name] || name} ·`;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+listen('jarvis-tool', ({ payload }) => toolNote(payload.name));
+
+// ---------- timers ----------
+
+listen('timer-fired', ({ payload }) => {
+  addMsg('jarvis', `⏱ ${payload.label}`);
+  document.dispatchEvent(new CustomEvent('jarvis-said', { detail: payload.label }));
 });
 
 // ---------- composer ----------
@@ -123,12 +165,18 @@ const apiKeyInput = document.getElementById('set-api-key');
 const apiKeyState = document.getElementById('api-key-state');
 
 document.getElementById('settings-btn').addEventListener('click', async () => {
-  const exists = await invoke('secret_exists', { key: 'anthropic_api_key' });
-  apiKeyState.textContent = exists ? '✓ key stored in Credential Manager' : 'no key stored yet';
+  const [hasKey, hasCf] = await Promise.all([
+    invoke('secret_exists', { key: 'anthropic_api_key' }),
+    invoke('secret_exists', { key: 'cf_access_client_id' }),
+  ]);
+  apiKeyState.textContent = hasKey ? '✓ key stored in Credential Manager' : 'no key stored yet';
+  document.getElementById('cf-state').textContent = hasCf ? '✓ service token stored' : 'not configured (portfolio tool offline)';
   apiKeyInput.value = '';
+  document.getElementById('set-cf-id').value = '';
+  document.getElementById('set-cf-secret').value = '';
   document.getElementById('set-rate').value = prefs.rate;
   document.getElementById('set-pitch').value = prefs.pitch;
-  document.getElementById('set-city').value = prefs.city;
+  document.getElementById('set-city').value = (await invoke('setting_get', { key: 'city' })) || 'Pune';
   dlg.showModal();
 });
 
@@ -136,9 +184,13 @@ document.getElementById('settings-save').addEventListener('click', async (e) => 
   e.preventDefault();
   const key = apiKeyInput.value.trim();
   if (key) await invoke('secret_set', { key: 'anthropic_api_key', value: key });
+  const cfId = document.getElementById('set-cf-id').value.trim();
+  const cfSecret = document.getElementById('set-cf-secret').value.trim();
+  if (cfId) await invoke('secret_set', { key: 'cf_access_client_id', value: cfId });
+  if (cfSecret) await invoke('secret_set', { key: 'cf_access_client_secret', value: cfSecret });
   prefs.rate = Number(document.getElementById('set-rate').value);
   prefs.pitch = Number(document.getElementById('set-pitch').value);
-  prefs.city = document.getElementById('set-city').value.trim() || 'Pune';
+  await invoke('setting_set', { key: 'city', value: document.getElementById('set-city').value.trim() || 'Pune' });
   dlg.close();
 });
 

@@ -2,8 +2,10 @@
 //! Ctrl+Shift+J global hotkey, single-instance lock, autostart.
 
 mod claude;
+mod db;
 mod secrets;
 mod stt;
+mod tools;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
@@ -57,8 +59,11 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(claude::Session::default())
         .manage(stt::SttState::default())
+        .manage(tools::Timers::default())
         .manage(Flags {
             muted: AtomicBool::new(false),
         })
@@ -69,11 +74,17 @@ pub fn run() {
             secrets::secret_exists,
             stt::stt_listen,
             stt::stt_stop,
+            db::setting_get,
+            db::setting_set,
             toggle_mute,
             is_muted,
             hide_window,
         ])
         .setup(|app| {
+            // ---- local SQLite (notes + settings) ----
+            let database = db::init(app.handle())?;
+            app.manage(database);
+
             // ---- system tray ----
             let open = MenuItem::with_id(app, "open", "Open JARVIS", true, None::<&str>)?;
             let mute = CheckMenuItem::with_id(app, "mute", "Mute", true, false, None::<&str>)?;

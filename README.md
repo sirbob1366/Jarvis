@@ -70,6 +70,36 @@ The WinRT recognizer only opens the microphone during capture (the waveform stri
 **Troubleshooting:** if JARVIS says speech recognition is disabled, enable
 **Settings → Privacy & security → Speech → Online speech recognition** in Windows.
 
+## Tools
+
+JARVIS answers with function-calling — every tool executes locally in Rust; the model only
+supplies arguments:
+
+| Tool | What it does |
+| --- | --- |
+| `portfolio_stats` | Today/week summaries, top pages, live counts from the analytics Worker (per site or portfolio-wide) |
+| `weather` | Current + today/tomorrow forecast via Open-Meteo (no key; city in Settings, default Pune) |
+| `set_timer` / `list_timers` | Local timers/reminders — native Windows notification + spoken alert |
+| `system` | Open a URL in the default browser; current date/time (IST) |
+| `remember` / `recall` | Persistent notes store (SQLite in `%APPDATA%\com.sirbob.jarvis`) |
+
+Try: *"How's pdfedit doing today?"*, *"Weather tomorrow?"*, *"Remind me in 20 minutes to stretch"*,
+*"Remember that the Ezoic payout lands on the 15th"*, *"What did I ask you to remember?"*
+
+### Cloudflare Access service token (portfolio_stats)
+
+The analytics Worker sits behind Cloudflare Access, so JARVIS authenticates with a
+**service token** instead of a browser login:
+
+1. [Zero Trust](https://one.dash.cloudflare.com) → **Access → Service auth → Service Tokens →
+   Create Service Token** — name it `jarvis-desktop`, duration to taste. Copy the
+   **Client ID** and **Client Secret** (the secret is shown once).
+2. **Access → Applications → Portfolio Analytics HUD → Policies → Add a policy**:
+   name `JARVIS desktop`, action **Service Auth**, include → **Service Token** →
+   `jarvis-desktop`.
+3. JARVIS Settings (gear) → paste both values → SAVE. They live in the Windows Credential
+   Manager and ride along as `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers.
+
 ## Architecture
 
 ```
