@@ -14,6 +14,9 @@ pub const GOOGLE_CLIENT_ID: &str = "google_client_id";
 pub const GOOGLE_CLIENT_SECRET: &str = "google_client_secret";
 pub const WORK_GOOGLE_OAUTH_TOKEN: &str = "work_google_oauth_token";
 pub const SLACK_TOKEN: &str = "slack_token";
+/// Cloudflare API token — used only to confirm Pages deploy status after an
+/// agent push (Settings → Agents). Read-scoped is sufficient.
+pub const CF_API_TOKEN: &str = "cloudflare_api_token";
 
 const ALLOWED: &[&str] = &[
     ANTHROPIC_API_KEY,
@@ -24,6 +27,7 @@ const ALLOWED: &[&str] = &[
     GOOGLE_CLIENT_SECRET,
     WORK_GOOGLE_OAUTH_TOKEN,
     SLACK_TOKEN,
+    CF_API_TOKEN,
 ];
 
 fn entry(key: &str) -> Result<Entry, String> {

@@ -46,6 +46,13 @@ fn briefing_prompt(app: &AppHandle) -> String {
     if weekday {
         p.push_str(WORK_BRIEFING_ADDON);
     }
+    let pending = crate::agents::pending_review_count(app);
+    if pending > 0 {
+        p.push_str(&format!(
+            " Also mention, in one sentence, that {pending} agent {} awaiting his review on the Agents tab.",
+            if pending == 1 { "job is" } else { "jobs are" }
+        ));
+    }
     if crate::vault::exists() {
         p.push_str(VAULT_BRIEFING_ADDON);
         // Monday: fold in Sunday's context-audit health note.

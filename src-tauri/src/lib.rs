@@ -1,6 +1,7 @@
 //! JARVIS Desktop — Tauri shell: system tray, frameless HUD window,
 //! Ctrl+Shift+J global hotkey, single-instance lock, autostart.
 
+mod agents;
 mod brain;
 mod calendar;
 mod claude;
@@ -31,7 +32,9 @@ pub struct Flags {
 }
 
 /// Which summon hotkey actually registered ("" if none was available).
-pub struct ActiveHotkey(pub String);
+/// Managed up front (interior mutability) and filled in during setup, so an
+/// early `get_hotkey` from the webview can never race `manage()` and abort.
+pub struct ActiveHotkey(pub std::sync::Mutex<String>);
 
 fn on_hotkey(app: &AppHandle, _sc: &Shortcut, event: ShortcutEvent) {
     match event.state() {
@@ -48,7 +51,7 @@ fn on_hotkey(app: &AppHandle, _sc: &Shortcut, event: ShortcutEvent) {
 
 #[tauri::command]
 fn get_hotkey(app: AppHandle) -> String {
-    app.state::<ActiveHotkey>().0.clone()
+    app.state::<ActiveHotkey>().0.lock().unwrap().clone()
 }
 
 fn show_main(app: &AppHandle) {
@@ -120,12 +123,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(claude::Session::default())
         .manage(brain::Brain::default())
+        .manage(agents::Agents::default())
         .manage(stt::SttState::default())
         .manage(tools::Timers::default())
         .manage(proactive::AlertLog::default())
         .manage(Flags {
             muted: AtomicBool::new(false),
         })
+        .manage(ActiveHotkey(std::sync::Mutex::new(String::new())))
         .invoke_handler(tauri::generate_handler![
             claude::ask_jarvis,
             claude::clear_session,
@@ -161,6 +166,16 @@ pub fn run() {
             vault::vault_read_file,
             vault::vault_write_file,
             vault::vault_status,
+            agents::agents_config,
+            agents::agents_set_enabled,
+            agents::agents_set_allowlist,
+            agents::agents_jobs,
+            agents::agents_dispatch,
+            agents::agents_approve,
+            agents::agents_request_changes,
+            agents::agents_discard,
+            agents::agents_cancel,
+            agents::agents_rollback,
             toggle_mute,
             is_muted,
             hide_window,
@@ -250,7 +265,7 @@ pub fn run() {
                 eprintln!("JARVIS: no global hotkey available; use the tray icon");
                 ""
             };
-            app.manage(ActiveHotkey(active.into()));
+            *app.state::<ActiveHotkey>().0.lock().unwrap() = active.to_string();
 
             Ok(())
         })

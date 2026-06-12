@@ -91,6 +91,28 @@ function render() {
     <label>City (weather) <input id="set-city" type="text" placeholder="Pune" /></label>
   </div>
 
+  <div class="card settings-card" id="sc-agents">
+    <h3>Agents</h3>
+    <div class="toggle-row"><span>Agents enabled</span><input type="checkbox" id="set-agents-enabled" /></div>
+    <span class="hint">Agents edit your allowlisted projects with Claude Code. They commit locally and <b>never deploy</b> — every job waits for your approval on the Agents tab.</span>
+    <div class="conn-row" id="agents-cli-row" style="margin-top:8px">
+      <span class="conn-dot unset"></span>
+      <span class="conn-name">Claude Code</span>
+      <span class="conn-err" id="agents-cli-state">checking…</span>
+    </div>
+    <label style="margin-top:8px">Allowlisted directories</label>
+    <div id="agents-allowlist"></div>
+    <div class="ag-allow-actions">
+      <button class="btn" id="agents-add-row">+ Add directory</button>
+      <button class="btn" id="agents-save-allow">Save allowlist</button>
+      <span class="hint" id="agents-allow-msg"></span>
+    </div>
+    ${secretField('set-cf-api', 'Cloudflare API token (deploy status, optional)', 'read-scoped token', 'cf-api-state')}
+    <label>Cloudflare account ID (for deploy status)
+      <input id="set-cf-account" type="text" placeholder="32-char account id" autocomplete="off" />
+    </label>
+  </div>
+
   <div class="card settings-card">
     <h3>JARVIS-OS vault</h3>
     <div class="conn-row" id="vault-row">
@@ -249,6 +271,7 @@ async function refreshState() {
   document.getElementById('set-domain-pin').value = (await inv('setting_get', { key: 'domain_pin' })) || 'all';
   document.getElementById('set-writeback-ask').checked = (await inv('setting_get', { key: 'vault_writeback_ask' })) !== '0';
   refreshVault();
+  refreshAgents();
   refreshVoices();
 }
 
@@ -272,6 +295,44 @@ async function refreshVault() {
   } catch (e) {
     document.getElementById('vault-state').textContent = String(e);
   }
+}
+
+// ---------- agents ----------
+
+function allowlistRow(entry = { key: '', path: '', cf_project: '' }) {
+  const row = document.createElement('div');
+  row.className = 'ag-allow-row';
+  row.innerHTML = `
+    <input class="ag-allow-key" placeholder="key" value="${(entry.key || '').replace(/"/g, '&quot;')}" />
+    <input class="ag-allow-path" placeholder="C:\\path\\to\\repo" value="${(entry.path || '').replace(/"/g, '&quot;')}" />
+    <input class="ag-allow-cf" placeholder="cf project (opt)" value="${(entry.cf_project || '').replace(/"/g, '&quot;')}" />
+    <button class="ag-allow-del" title="Remove">✕</button>`;
+  row.querySelector('.ag-allow-del').addEventListener('click', () => row.remove());
+  return row;
+}
+
+async function refreshAgents() {
+  const wrap = document.getElementById('agents-allowlist');
+  if (!wrap) return;
+  let cfg;
+  try { cfg = await inv('agents_config'); } catch (e) {
+    document.getElementById('agents-cli-state').textContent = String(e);
+    return;
+  }
+  document.getElementById('set-agents-enabled').checked = !!cfg.enabled;
+  const row = document.getElementById('agents-cli-row');
+  row.querySelector('.conn-dot').className = `conn-dot ${cfg.cli_available ? 'ok' : 'unset'}`;
+  document.getElementById('agents-cli-state').textContent = cfg.cli_available
+    ? `${cfg.cli_version || 'installed'} · acceptEdits mode, up to ${cfg.max_concurrency} concurrent`
+    : 'not installed — agents cannot run';
+
+  wrap.innerHTML = '';
+  for (const e of cfg.allowlist || []) wrap.appendChild(allowlistRow(e));
+
+  document.getElementById('set-cf-account').value =
+    (await inv('setting_get', { key: 'cloudflare_account_id' })) || '';
+  document.getElementById('cf-api-state').textContent =
+    (await inv('secret_exists', { key: 'cloudflare_api_token' })) ? '✓ token stored' : 'no token (deploy status optional)';
 }
 
 function refreshVoices() {
@@ -339,6 +400,29 @@ function wire() {
     await inv('setting_set', { key: 'vault_writeback_ask', value: e.target.checked ? '1' : '0' });
   });
 
+  document.getElementById('set-agents-enabled').addEventListener('change', async (e) => {
+    await inv('agents_set_enabled', { enabled: e.target.checked });
+  });
+
+  document.getElementById('agents-add-row').addEventListener('click', () => {
+    document.getElementById('agents-allowlist').appendChild(allowlistRow());
+  });
+
+  document.getElementById('agents-save-allow').addEventListener('click', async () => {
+    const rows = [...document.querySelectorAll('#agents-allowlist .ag-allow-row')];
+    const list = rows.map((r) => ({
+      key: r.querySelector('.ag-allow-key').value.trim(),
+      path: r.querySelector('.ag-allow-path').value.trim(),
+      cf_project: r.querySelector('.ag-allow-cf').value.trim(),
+    })).filter((e) => e.key && e.path);
+    const msg = document.getElementById('agents-allow-msg');
+    try {
+      await inv('agents_set_allowlist', { allowlist: list });
+      msg.textContent = `✓ saved ${list.length} ${list.length === 1 ? 'directory' : 'directories'}`;
+      setTimeout(() => { msg.textContent = ''; }, 3000);
+    } catch (e) { msg.textContent = String(e); }
+  });
+
   document.getElementById('set-autostart').addEventListener('change', async (e) => {
     try {
       await inv(e.target.checked ? 'plugin:autostart|enable' : 'plugin:autostart|disable');
@@ -378,6 +462,8 @@ function wire() {
     await saveSecret('set-g-id', 'google_client_id');
     await saveSecret('set-g-secret', 'google_client_secret');
     await saveSecret('set-slack', 'slack_token');
+    await saveSecret('set-cf-api', 'cloudflare_api_token');
+    await inv('setting_set', { key: 'cloudflare_account_id', value: document.getElementById('set-cf-account').value.trim() });
     prefs.rate = Number(document.getElementById('set-rate').value);
     prefs.voiceName = document.getElementById('set-voice').value;
     await inv('setting_set', { key: 'city', value: document.getElementById('set-city').value.trim() || 'Pune' });
@@ -402,5 +488,5 @@ async function saveSecret(inputId, key) {
 render();
 refreshBrain();
 document.addEventListener('tab-shown', ({ detail }) => {
-  if (detail.tab === 'settings') { refreshState(); refreshConnections(); refreshBrain(); }
+  if (detail.tab === 'settings') { refreshState(); refreshConnections(); refreshBrain(); refreshAgents(); }
 });

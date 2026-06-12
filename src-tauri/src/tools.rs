@@ -151,12 +151,29 @@ pub fn definitions() -> Value {
         "input_schema": {
           "type": "object",
           "properties": {
-            "tab": { "type": "string", "enum": ["command", "hud", "work", "settings"] },
+            "tab": { "type": "string", "enum": ["command", "hud", "work", "agents", "mindmap", "settings"] },
             "view": { "type": "string", "enum": ["overview", "site", "live", "revenue"], "description": "HUD tab only." },
             "site": { "type": "string", "enum": SITES, "description": "HUD site drill-in." }
           },
           "required": ["tab"]
         }
+      },
+      {
+        "name": "dispatch_agent",
+        "description": "Dispatch a Claude Code agent to edit one of sir's allowlisted projects (the five sites — pdfedit/imagetool/audiotool/videotool/invoicetool keyed by their folder names myfreepdfedit etc. — plus portfolio-analytics and JARVIS). The agent edits and commits LOCALLY only; it can NEVER deploy — every job stops at a review gate sir must approve. ALWAYS confirm the exact site and instruction with sir aloud BEFORE calling, then call. Never deploy by voice.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "site": { "type": "string", "description": "Allowlist key, e.g. myfreepdfedit, portfolio-analytics, JARVIS." },
+            "instruction": { "type": "string", "description": "What the agent should change, in clear prose (e.g. 'Update the FAQ to mention the new batch-export limit of 50 files')." }
+          },
+          "required": ["site", "instruction"]
+        }
+      },
+      {
+        "name": "agent_status",
+        "description": "What are sir's agents doing? Returns active/queued jobs and any jobs awaiting his review. Use for 'what are my agents up to?' or before offering to dispatch another.",
+        "input_schema": { "type": "object", "properties": {} }
       },
       {
         "name": "hud_data",
@@ -267,6 +284,8 @@ pub async fn run(app: &AppHandle, name: &str, input: &Value) -> Result<Value, St
         "work_slack" => crate::work::slack_tool(input).await,
         "work_calendar" => crate::work::calendar_tool(input).await,
         "navigate_app" => navigate_app(app, input),
+        "dispatch_agent" => crate::agents::dispatch_tool(app, input),
+        "agent_status" => crate::agents::status_tool(app),
         "hud_data" => hud_data(input).await,
         "log_decision" => crate::vault::log_decision(app, input),
         "save_note" => crate::vault::save_note(app, input),
@@ -484,7 +503,7 @@ fn system(app: &AppHandle, input: &Value) -> Result<Value, String> {
 
 fn navigate_app(app: &AppHandle, input: &Value) -> Result<Value, String> {
     let tab = input["tab"].as_str().unwrap_or("command");
-    if !["command", "hud", "work", "settings"].contains(&tab) {
+    if !["command", "hud", "work", "agents", "mindmap", "settings"].contains(&tab) {
         return Err(format!("Unknown tab: {tab}"));
     }
     let _ = app.emit("navigate", json!({

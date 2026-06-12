@@ -263,13 +263,35 @@ function endListening() {
   stopWave();
 }
 
+// Dictation: temporarily redirect the next transcript into a field instead of
+// the conversation (used by the Agents instruction box).
+let dictationTarget = null;
+export function dictate(onResult) {
+  if (listening) { // second tap stops native capture early
+    if (!webSpeech) invoke('stt_stop');
+    return;
+  }
+  dictationTarget = onResult;
+  startListening();
+}
+export function isListening() { return listening; }
+function flushDictation(text) {
+  const target = dictationTarget;
+  dictationTarget = null;
+  if (target) { target(text); return true; }
+  return false;
+}
+
 function gotTranscript(text) {
   endListening();
-  if (text?.trim()) send(text.trim());
+  const t = text?.trim() || '';
+  if (flushDictation(t)) return;
+  if (t) send(t);
 }
 
 function gotError(error) {
   endListening();
+  if (flushDictation('')) return; // dictation just stops quietly
   setThinking(false);
   const el = document.createElement('div');
   el.className = 'msg jarvis error';

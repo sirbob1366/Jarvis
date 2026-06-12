@@ -18,7 +18,7 @@ export const prefs = {
 
 // ---------- tab router ----------
 
-const tabs = ['command', 'hud', 'work', 'mindmap', 'settings'];
+const tabs = ['command', 'hud', 'work', 'agents', 'mindmap', 'settings'];
 let activeTab = 'command';
 
 export function navigate(tab, detail = null) {
@@ -174,6 +174,8 @@ const TOOL_LABELS = {
   work_slack: 'scanning Slack',
   work_calendar: 'consulting the work calendar',
   navigate_app: 'bringing it on screen',
+  dispatch_agent: 'dispatching an agent',
+  agent_status: 'checking on the agents',
   hud_data: 'pulling analytics',
   log_decision: 'logging the decision',
   save_note: 'filing a vault note',

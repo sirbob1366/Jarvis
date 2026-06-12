@@ -34,7 +34,16 @@ pub fn init(app: &AppHandle) -> Result<Db, Box<dyn std::error::Error>> {
            done_ts INTEGER
          );
          CREATE UNIQUE INDEX IF NOT EXISTS idx_todos_origin
-           ON todos(origin_key) WHERE origin_key IS NOT NULL;",
+           ON todos(origin_key) WHERE origin_key IS NOT NULL;
+         CREATE TABLE IF NOT EXISTS agent_history (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           ts INTEGER NOT NULL,
+           site TEXT NOT NULL,
+           instruction TEXT NOT NULL,
+           commit_hash TEXT NOT NULL,
+           action TEXT NOT NULL DEFAULT 'deploy',
+           note TEXT NOT NULL DEFAULT ''
+         );",
     )?;
     Ok(Db(Mutex::new(conn)))
 }

@@ -1017,6 +1017,168 @@ body[class*='pin-'] .board > .card { transition: opacity var(--t-med); }
 
 ::selection { background: rgba(79, 216, 255, 0.25); }
 
+/* ==========================================================================
+   AGENTS tab — dispatch / active / review (diff) / history
+   ========================================================================== */
+
+/* rail badge — pending reviews */
+.rail-btn { position: relative; }
+.rail-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 15px; height: 15px; padding: 0 3px;
+  display: grid; place-items: center;
+  font: 700 9px var(--mono); color: #04070c;
+  background: var(--amber); border-radius: 8px;
+  box-shadow: 0 0 8px rgba(255, 184, 77, 0.5);
+}
+
+.agents-wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 12px; }
+.agents-head { display: flex; align-items: center; gap: 12px; }
+
+.agents-grid {
+  flex: 1; min-height: 0; display: grid;
+  grid-template-columns: minmax(330px, 380px) 1fr;
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas:
+    "dispatch review"
+    "active   review"
+    "history  review";
+  gap: 16px;
+}
+#ag-dispatch { grid-area: dispatch; }
+#ag-active-panel { grid-area: active; }
+#ag-history-panel { grid-area: history; }
+#ag-review-panel { grid-area: review; }
+.agents-grid .hud-panel { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.ag-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+
+/* dispatch form */
+.ag-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.ag-form.locked { opacity: 0.4; pointer-events: none; }
+.ag-row { display: flex; gap: 8px; }
+.ag-select {
+  flex: 1; background: var(--card-solid); color: var(--text);
+  border: 1px solid var(--hairline); border-radius: 8px;
+  padding: 7px 8px; font: 12px var(--sans);
+}
+.ag-instruction { position: relative; }
+.ag-instruction textarea {
+  width: 100%; resize: vertical; min-height: 64px;
+  background: var(--card-solid); color: var(--text);
+  border: 1px solid var(--hairline); border-radius: 8px;
+  padding: 8px 38px 8px 10px; font: 12px/1.5 var(--sans);
+}
+.mic-btn.ag-mic {
+  position: absolute; right: 6px; bottom: 6px;
+  width: 28px; height: 28px; padding: 0;
+}
+.ag-dispatch-actions { display: flex; align-items: center; gap: 10px; }
+.ag-disabled-banner {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+  font: 12px var(--sans); color: var(--amber);
+}
+
+/* job + review cards */
+.ag-job {
+  border: 1px solid var(--hairline); border-radius: 10px;
+  padding: 10px 12px; background: rgba(7, 16, 26, 0.6);
+}
+.ag-job.ag-running { border-color: var(--hairline-strong); box-shadow: 0 0 12px rgba(79, 216, 255, 0.08); }
+.ag-job.ag-failed { border-color: rgba(255, 82, 82, 0.4); }
+.ag-job-head { display: flex; align-items: center; gap: 8px; }
+.ag-site-tag {
+  font: 700 10px var(--mono); letter-spacing: 0.06em; color: var(--glow);
+  border: 1px solid var(--hairline); border-radius: 5px; padding: 1px 6px;
+}
+.ag-status {
+  font: 9px var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 1px 7px; border-radius: 8px; color: var(--dim);
+  border: 1px solid rgba(109, 147, 171, 0.3);
+}
+.ag-status.running { color: var(--glow); border-color: var(--hairline-strong); background: rgba(79, 216, 255, 0.07); }
+.ag-status.review { color: var(--amber); border-color: rgba(255, 184, 77, 0.4); background: rgba(255, 184, 77, 0.07); }
+.ag-status.deploying { color: var(--green); border-color: rgba(111, 227, 165, 0.4); }
+.ag-status.failed { color: var(--red); border-color: rgba(255, 82, 82, 0.4); }
+.ag-elapsed { margin-left: auto; font-size: 10px; color: var(--dimmer); }
+.ag-instr { margin: 6px 0; font: 12px/1.45 var(--sans); color: var(--text); }
+.ag-summary { font: 11px/1.5 var(--sans); color: var(--dim); margin: 4px 0 8px; white-space: pre-wrap; }
+.ag-err { font: 11px var(--mono); color: var(--red); margin-top: 6px; user-select: text; }
+.ag-flash { display: block; margin-top: 6px; }
+
+.ag-log {
+  margin: 8px 0 0; max-height: 160px; overflow-y: auto;
+  background: #050a11; border: 1px solid var(--hairline); border-radius: 6px;
+  padding: 8px; font: 10px/1.5 var(--mono); color: var(--dim);
+  white-space: pre-wrap; word-break: break-word;
+  scrollbar-width: thin; scrollbar-color: var(--hairline) transparent;
+}
+
+/* action buttons */
+.ag-btn-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ag-review-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ag-act {
+  font: 600 10px var(--mono); letter-spacing: 0.06em; cursor: pointer;
+  border-radius: 7px; padding: 7px 11px; border: 1px solid var(--hairline);
+  background: transparent; color: var(--text); transition: background var(--t-fast), border-color var(--t-fast);
+}
+.ag-btn-go { color: var(--green); border-color: rgba(111, 227, 165, 0.4); background: rgba(111, 227, 165, 0.08); }
+.ag-btn-go:hover { background: rgba(111, 227, 165, 0.18); }
+.ag-btn-ghost:hover { border-color: var(--hairline-strong); background: rgba(79, 216, 255, 0.06); }
+.ag-rollback[data-armed="1"] { color: var(--amber); border-color: rgba(255, 184, 77, 0.5); }
+
+.ag-followup { margin-top: 8px; }
+.ag-followup textarea {
+  width: 100%; resize: vertical; background: var(--card-solid); color: var(--text);
+  border: 1px solid var(--hairline); border-radius: 8px; padding: 8px; font: 12px var(--sans);
+}
+
+/* per-file diff */
+.ag-files { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.ag-file { border: 1px solid var(--hairline); border-radius: 7px; overflow: hidden; background: rgba(5, 10, 17, 0.5); }
+.ag-file > summary {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+  padding: 7px 10px; font: 11px var(--mono);
+}
+.ag-file > summary::-webkit-details-marker { display: none; }
+.ag-file > summary:hover { background: rgba(79, 216, 255, 0.05); }
+.ag-file-status { font: 700 9px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--hairline); color: var(--dim); }
+.ag-file-status.s-A { color: var(--green); border-color: rgba(111, 227, 165, 0.4); }
+.ag-file-status.s-M { color: var(--glow); border-color: var(--hairline-strong); }
+.ag-file-status.s-D { color: var(--red); border-color: rgba(255, 82, 82, 0.4); }
+.ag-file-path { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-file-stat { font-size: 10px; }
+.ag-file-stat .add { color: var(--green); }
+.ag-file-stat .del { color: var(--red); }
+.ag-diff {
+  margin: 0; max-height: 360px; overflow: auto; padding: 8px 0;
+  background: #04080e; font: 10.5px/1.55 var(--mono);
+  scrollbar-width: thin; scrollbar-color: var(--hairline) transparent;
+}
+.ag-diff .dl { display: block; padding: 0 10px; white-space: pre; }
+.ag-diff .add { color: var(--green); background: rgba(111, 227, 165, 0.08); }
+.ag-diff .del { color: var(--red); background: rgba(255, 82, 82, 0.08); }
+.ag-diff .hunk { color: var(--glow); background: rgba(79, 216, 255, 0.06); }
+.ag-diff .meta { color: var(--dimmer); }
+.ag-diff .ctx { color: var(--dim); }
+
+/* history */
+.ag-hist-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-bottom: 1px solid rgba(78, 216, 255, 0.07); }
+.ag-hist-row:last-child { border-bottom: none; }
+.ag-hist-main { display: flex; align-items: center; gap: 8px; }
+.ag-hist-instr { font: 12px var(--sans); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-hist-meta { display: flex; align-items: center; gap: 10px; }
+.ag-hash { font-size: 11px; color: var(--dim); }
+
+/* settings — allowlist editor */
+.ag-allow-row { display: grid; grid-template-columns: 90px 1fr 110px 24px; gap: 6px; margin: 6px 0; }
+.ag-allow-row input {
+  background: var(--card-solid); color: var(--text); border: 1px solid var(--hairline);
+  border-radius: 6px; padding: 6px 8px; font: 11px var(--mono);
+}
+.ag-allow-del { background: transparent; border: none; color: var(--dim); cursor: pointer; font-size: 13px; }
+.ag-allow-del:hover { color: var(--red); }
+.ag-allow-actions { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

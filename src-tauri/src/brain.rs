@@ -114,6 +114,22 @@ fn cli_binary(app: &AppHandle, refresh: bool) -> Option<CliBinary> {
     guard.clone()
 }
 
+/// The resolved Claude Code CLI, shared with the agents module so it spawns
+/// the same binary (handling .cmd shims) without re-probing.
+pub struct ResolvedCli {
+    pub path: String,
+    pub via_cmd: bool,
+    pub version: String,
+}
+
+pub fn resolve_cli(app: &AppHandle, refresh: bool) -> Option<ResolvedCli> {
+    cli_binary(app, refresh).map(|b| ResolvedCli {
+        path: b.path,
+        via_cmd: b.via_cmd,
+        version: b.version,
+    })
+}
+
 // ---------- sandbox ----------
 
 /// Stage 6 makes the JARVIS-OS vault the brain's home when it exists, so the
@@ -140,10 +156,15 @@ figures); the app's board and HUD carry the detail, your voice carries the
 summary. When a richer on-screen view exists, call mcp__jarvis__navigate_app.
 
 Your tools are the mcp__jarvis__* set (portfolio analytics, weather, timers,
-calendars, work email/slack — strictly read-only — todos, notes, navigation).
-Use them whenever they answer the question; use actual numbers from results.
-If a tool fails, say so plainly and move on. Do not use Bash, file edits, or
-web access — they are disabled here by design.
+calendars, work email/slack — strictly read-only — todos, notes, navigation,
+and agent dispatch). Use them whenever they answer the question; use actual
+numbers from results. If a tool fails, say so plainly and move on. Do not use
+Bash, file edits, or web access — they are disabled here by design.
+
+Agents: dispatch_agent edits sir's allowlisted projects. ALWAYS confirm the
+site and instruction aloud before dispatching, and NEVER deploy by voice — every
+job stops at sir's on-screen review gate. Use agent_status for \"what are my
+agents doing?\".
 ";
 
 fn ensure_sandbox(mcp_url: &str) -> Result<PathBuf, String> {
